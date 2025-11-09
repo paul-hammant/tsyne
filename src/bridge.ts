@@ -30,9 +30,10 @@ export class BridgeConnection {
   }>();
   private eventHandlers = new Map<string, (data: any) => void>();
 
-  constructor() {
+  constructor(testMode: boolean = false) {
     const bridgePath = path.join(__dirname, '..', 'bin', 'jyne-bridge');
-    this.process = spawn(bridgePath, [], {
+    const args = testMode ? ['--headless'] : [];
+    this.process = spawn(bridgePath, args, {
       stdio: ['pipe', 'pipe', 'inherit']
     });
 

@@ -9,7 +9,10 @@
     "build:bridge": "cd bridge && go build -o ../bin/jyne-bridge",
     "prepare": "npm run build:bridge && npm run build",
     "example": "npm run build && node examples/calculator.js",
-    "test": "jest",
+    "test": "npm run test:calculator",
+    "test:calculator": "npm run build && node test-apps/calculator/calculator.test.js",
+    "test:calculator:headed": "npm run build && JYNE_HEADED=1 node test-apps/calculator/calculator.test.js",
+    "run:calculator": "npm run build && node test-apps/calculator/calculator.js",
     "clean": "rm -rf dist bin"
   },
   "keywords": [

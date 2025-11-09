@@ -6,11 +6,13 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"sync"
 
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/app"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/test"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -36,21 +38,38 @@ type Event struct {
 
 // Bridge manages the Fyne app and communication
 type Bridge struct {
-	app       fyne.App
-	windows   map[string]fyne.Window
-	widgets   map[string]fyne.CanvasObject
-	callbacks map[string]string // widget ID -> callback ID
-	mu        sync.RWMutex
-	writer    *json.Encoder
+	app        fyne.App
+	windows    map[string]fyne.Window
+	widgets    map[string]fyne.CanvasObject
+	callbacks  map[string]string // widget ID -> callback ID
+	testMode   bool              // true for headless testing
+	mu         sync.RWMutex
+	writer     *json.Encoder
+	widgetMeta map[string]WidgetMetadata // metadata for testing
 }
 
-func NewBridge() *Bridge {
+// WidgetMetadata stores metadata about widgets for testing
+type WidgetMetadata struct {
+	Type string
+	Text string
+}
+
+func NewBridge(testMode bool) *Bridge {
+	var fyneApp fyne.App
+	if testMode {
+		fyneApp = test.NewApp()
+	} else {
+		fyneApp = app.New()
+	}
+
 	return &Bridge{
-		app:       app.New(),
-		windows:   make(map[string]fyne.Window),
-		widgets:   make(map[string]fyne.CanvasObject),
-		callbacks: make(map[string]string),
-		writer:    json.NewEncoder(os.Stdout),
+		app:        fyneApp,
+		windows:    make(map[string]fyne.Window),
+		widgets:    make(map[string]fyne.CanvasObject),
+		callbacks:  make(map[string]string),
+		testMode:   testMode,
+		writer:     json.NewEncoder(os.Stdout),
+		widgetMeta: make(map[string]WidgetMetadata),
 	}
 }
 
@@ -94,6 +113,17 @@ func (b *Bridge) handleMessage(msg Message) {
 		b.handleGetText(msg)
 	case "quit":
 		b.handleQuit(msg)
+	// Testing methods
+	case "findWidget":
+		b.handleFindWidget(msg)
+	case "clickWidget":
+		b.handleClickWidget(msg)
+	case "typeText":
+		b.handleTypeText(msg)
+	case "getWidgetInfo":
+		b.handleGetWidgetInfo(msg)
+	case "getAllWidgets":
+		b.handleGetAllWidgets(msg)
 	default:
 		b.sendResponse(Response{
 			ID:      msg.ID,
@@ -194,6 +224,7 @@ func (b *Bridge) handleCreateButton(msg Message) {
 
 	b.mu.Lock()
 	b.widgets[widgetID] = btn
+	b.widgetMeta[widgetID] = WidgetMetadata{Type: "button", Text: text}
 	if hasCallback {
 		b.callbacks[widgetID] = callbackID
 	}
@@ -214,6 +245,7 @@ func (b *Bridge) handleCreateLabel(msg Message) {
 
 	b.mu.Lock()
 	b.widgets[widgetID] = lbl
+	b.widgetMeta[widgetID] = WidgetMetadata{Type: "label", Text: text}
 	b.mu.Unlock()
 
 	b.sendResponse(Response{
@@ -232,6 +264,7 @@ func (b *Bridge) handleCreateEntry(msg Message) {
 
 	b.mu.Lock()
 	b.widgets[widgetID] = entry
+	b.widgetMeta[widgetID] = WidgetMetadata{Type: "entry", Text: ""}
 	b.mu.Unlock()
 
 	b.sendResponse(Response{
@@ -326,6 +359,14 @@ func (b *Bridge) handleSetText(msg Message) {
 		return
 	}
 
+	// Update metadata
+	b.mu.Lock()
+	if meta, exists := b.widgetMeta[widgetID]; exists {
+		meta.Text = text
+		b.widgetMeta[widgetID] = meta
+	}
+	b.mu.Unlock()
+
 	b.sendResponse(Response{
 		ID:      msg.ID,
 		Success: true,
@@ -380,8 +421,222 @@ func (b *Bridge) handleQuit(msg Message) {
 	b.app.Quit()
 }
 
+// Testing methods
+
+func (b *Bridge) handleFindWidget(msg Message) {
+	selector := msg.Payload["selector"].(string)
+	selectorType := msg.Payload["type"].(string)
+
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	var matches []string
+
+	for widgetID, meta := range b.widgetMeta {
+		switch selectorType {
+		case "text":
+			if strings.Contains(meta.Text, selector) {
+				matches = append(matches, widgetID)
+			}
+		case "exactText":
+			if meta.Text == selector {
+				matches = append(matches, widgetID)
+			}
+		case "type":
+			if meta.Type == selector {
+				matches = append(matches, widgetID)
+			}
+		}
+	}
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+		Result: map[string]interface{}{
+			"widgetIds": matches,
+		},
+	})
+}
+
+func (b *Bridge) handleClickWidget(msg Message) {
+	widgetID := msg.Payload["widgetId"].(string)
+
+	b.mu.RLock()
+	widget, exists := b.widgets[widgetID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget not found",
+		})
+		return
+	}
+
+	// Simulate click
+	if btn, ok := widget.(*widget.Button); ok {
+		if b.testMode {
+			test.Tap(btn)
+		} else {
+			// In normal mode, just trigger the callback
+			btn.OnTapped()
+		}
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: true,
+		})
+	} else {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget is not clickable",
+		})
+	}
+}
+
+func (b *Bridge) handleTypeText(msg Message) {
+	widgetID := msg.Payload["widgetId"].(string)
+	text := msg.Payload["text"].(string)
+
+	b.mu.RLock()
+	widget, exists := b.widgets[widgetID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget not found",
+		})
+		return
+	}
+
+	if entry, ok := widget.(*widget.Entry); ok {
+		if b.testMode {
+			test.Type(entry, text)
+		} else {
+			entry.SetText(text)
+		}
+
+		// Update metadata
+		b.mu.Lock()
+		if meta, exists := b.widgetMeta[widgetID]; exists {
+			meta.Text = text
+			b.widgetMeta[widgetID] = meta
+		}
+		b.mu.Unlock()
+
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: true,
+		})
+	} else {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget is not a text entry",
+		})
+	}
+}
+
+func (b *Bridge) handleGetWidgetInfo(msg Message) {
+	widgetID := msg.Payload["widgetId"].(string)
+
+	b.mu.RLock()
+	widget, widgetExists := b.widgets[widgetID]
+	meta, metaExists := b.widgetMeta[widgetID]
+	b.mu.RUnlock()
+
+	if !widgetExists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget not found",
+		})
+		return
+	}
+
+	info := map[string]interface{}{
+		"id":   widgetID,
+		"type": "unknown",
+		"text": "",
+	}
+
+	if metaExists {
+		info["type"] = meta.Type
+		info["text"] = meta.Text
+	}
+
+	// Get current text value
+	switch w := widget.(type) {
+	case *widget.Label:
+		info["text"] = w.Text
+		info["type"] = "label"
+	case *widget.Entry:
+		info["text"] = w.Text
+		info["type"] = "entry"
+		info["placeholder"] = w.PlaceHolder
+	case *widget.Button:
+		info["text"] = w.Text
+		info["type"] = "button"
+	}
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+		Result:  info,
+	})
+}
+
+func (b *Bridge) handleGetAllWidgets(msg Message) {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	widgets := make([]map[string]interface{}, 0)
+
+	for widgetID, meta := range b.widgetMeta {
+		widgetInfo := map[string]interface{}{
+			"id":   widgetID,
+			"type": meta.Type,
+			"text": meta.Text,
+		}
+
+		// Get current text value
+		if widget, exists := b.widgets[widgetID]; exists {
+			switch w := widget.(type) {
+			case *widget.Label:
+				widgetInfo["text"] = w.Text
+			case *widget.Entry:
+				widgetInfo["text"] = w.Text
+			case *widget.Button:
+				widgetInfo["text"] = w.Text
+			}
+		}
+
+		widgets = append(widgets, widgetInfo)
+	}
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+		Result: map[string]interface{}{
+			"widgets": widgets,
+		},
+	})
+}
+
 func main() {
-	bridge := NewBridge()
+	// Check for test mode flag
+	testMode := false
+	for _, arg := range os.Args[1:] {
+		if arg == "--test" || arg == "--headless" {
+			testMode = true
+			break
+		}
+	}
+
+	bridge := NewBridge(testMode)
 
 	// Read messages from stdin in a goroutine
 	go func() {

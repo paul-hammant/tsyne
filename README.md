@@ -11,6 +11,7 @@ Jyne brings the power of [Fyne](https://fyne.io/), a modern Go UI toolkit, to th
 - **Type-Safe**: Full TypeScript support with complete type definitions
 - **Easy Integration**: Simple npm package that's quick to add to any Node.js project
 - **Powerful**: Full access to Fyne's rich widget library and layout system
+- **Testable**: Built-in testing framework (JyneTest) with Playwright-like API for headed/headless testing
 
 ## Installation
 
@@ -117,6 +118,91 @@ app({ title: "Counter" }, () => {
 });
 ```
 
+## Testing with JyneTest
+
+Jyne includes **JyneTest**, a Playwright-like testing framework for testing your UI applications in headed or headless mode.
+
+### Quick Test Example
+
+```typescript
+import { JyneTest } from 'jyne/test';
+
+async function testCalculator() {
+  // Create test instance (headless by default)
+  const jyneTest = new JyneTest({ headed: false });
+
+  // Build your app
+  const testApp = jyneTest.createApp((app) => {
+    // ... build calculator UI ...
+  });
+
+  // Get test context
+  const ctx = jyneTest.getContext();
+  await testApp.run();
+
+  // Interact with the UI
+  await ctx.getByExactText("5").click();
+  await ctx.getByExactText("+").click();
+  await ctx.getByExactText("3").click();
+  await ctx.getByExactText("=").click();
+
+  // Make assertions
+  const display = ctx.getByType("label");
+  await ctx.expect(display).toHaveText("8");
+
+  // Clean up
+  await jyneTest.cleanup();
+}
+```
+
+### Test Modes
+
+**Headless (default)** - Fast, no UI, perfect for CI/CD:
+```typescript
+const jyneTest = new JyneTest({ headed: false });
+```
+
+**Headed** - Shows UI during testing, great for debugging:
+```typescript
+const jyneTest = new JyneTest({ headed: true });
+```
+
+### Locators and Assertions
+
+```typescript
+// Find widgets by text
+ctx.getByExactText("Submit")
+ctx.getByText("Counter:") // partial match
+
+// Find by type
+ctx.getByType("button")
+ctx.getByType("label")
+ctx.getByType("entry")
+
+// Actions
+await locator.click()
+await locator.type("text")
+await locator.getText()
+
+// Assertions
+await ctx.expect(locator).toHaveText("exact text")
+await ctx.expect(locator).toContainText("partial")
+await ctx.expect(locator).toBeVisible()
+await ctx.expect(locator).toExist()
+```
+
+### Running Tests
+
+```bash
+# Run tests in headless mode
+npm test
+
+# Run with visible UI
+npm run test:calculator:headed
+```
+
+**See [TESTING.md](TESTING.md) for complete documentation and the [calculator test app](test-apps/calculator/) for a comprehensive example.**
+
 ## API Reference
 
 ### Application
@@ -190,7 +276,9 @@ Jyne uses a unique architecture to bridge TypeScript and Go:
 
 ## Examples
 
-Check out the `examples/` directory for more complete examples:
+### Basic Examples
+
+Check out the `examples/` directory:
 
 - `hello.ts` - Simple Hello World
 - `calculator.ts` - Calculator with number pad
@@ -201,8 +289,17 @@ Run an example:
 
 ```bash
 npm run build
-node dist/../examples/calculator.js
+node examples/calculator.js
 ```
+
+### Test Applications
+
+Check out the `test-apps/` directory for production-quality, fully tested applications:
+
+- **Calculator** (`test-apps/calculator/`) - Full-featured calculator with comprehensive test suite
+  - Run: `npm run run:calculator`
+  - Test: `npm run test:calculator`
+  - See [test-apps/calculator/README.md](test-apps/calculator/README.md) for details
 
 ## Design Philosophy
 
@@ -252,8 +349,17 @@ Contributions are welcome! Please feel free to submit issues and pull requests.
 
 MIT License - see [LICENSE](LICENSE) file for details
 
+## Documentation
+
+- **[QUICKSTART.md](QUICKSTART.md)** - Get started in 5 minutes
+- **[TESTING.md](TESTING.md)** - Complete guide to JyneTest testing framework
+- **[ARCHITECTURE.md](ARCHITECTURE.md)** - Internal design and architecture
+- **[CONTRIBUTING.md](CONTRIBUTING.md)** - Guide for contributors
+- **[test-apps/calculator/README.md](test-apps/calculator/README.md)** - Example testable application
+
 ## Acknowledgments
 
 - [Fyne](https://fyne.io/) - The fantastic Go UI toolkit that powers Jyne
 - Paul Hammant's [blog posts](https://paulhammant.com) on elegant DSL design
 - The Ruby/Groovy communities for inspiring declarative UI patterns
+- [Playwright](https://playwright.dev/) - Inspiration for JyneTest's API design

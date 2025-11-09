@@ -12,10 +12,19 @@ export interface AppOptions {
 export class App {
   private ctx: Context;
   private windows: Window[] = [];
+  private bridge: BridgeConnection;
 
-  constructor(options?: AppOptions) {
-    const bridge = new BridgeConnection();
-    this.ctx = new Context(bridge);
+  constructor(options?: AppOptions, testMode: boolean = false) {
+    this.bridge = new BridgeConnection(testMode);
+    this.ctx = new Context(this.bridge);
+  }
+
+  getContext(): Context {
+    return this.ctx;
+  }
+
+  getBridge(): BridgeConnection {
+    return this.bridge;
   }
 
   window(options: WindowOptions, builder: (win: Window) => void): Window {
