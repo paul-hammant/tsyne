@@ -1,6 +1,6 @@
 import { App, AppOptions } from './app';
 import { Context } from './context';
-import { Button, Label, Entry, VBox, HBox } from './widgets';
+import { Button, Label, Entry, VBox, HBox, Checkbox, Select, Slider } from './widgets';
 import { Window, WindowOptions } from './window';
 
 // Global context for the declarative API
@@ -82,8 +82,43 @@ export function entry(placeholder?: string): Entry {
   return new Entry(globalContext, placeholder);
 }
 
+/**
+ * Create a checkbox widget
+ */
+export function checkbox(text: string, onChanged?: (checked: boolean) => void): Checkbox {
+  if (!globalContext) {
+    throw new Error('checkbox() must be called within an app context');
+  }
+  return new Checkbox(globalContext, text, onChanged);
+}
+
+/**
+ * Create a select (dropdown) widget
+ */
+export function select(options: string[], onSelected?: (selected: string) => void): Select {
+  if (!globalContext) {
+    throw new Error('select() must be called within an app context');
+  }
+  return new Select(globalContext, options, onSelected);
+}
+
+/**
+ * Create a slider widget
+ */
+export function slider(
+  min: number,
+  max: number,
+  initialValue?: number,
+  onChanged?: (value: number) => void
+): Slider {
+  if (!globalContext) {
+    throw new Error('slider() must be called within an app context');
+  }
+  return new Slider(globalContext, min, max, initialValue, onChanged);
+}
+
 // Export classes for advanced usage
-export { App, Window, Button, Label, Entry, VBox, HBox };
+export { App, Window, Button, Label, Entry, VBox, HBox, Checkbox, Select, Slider };
 export type { AppOptions, WindowOptions };
 
 // Export state management utilities
