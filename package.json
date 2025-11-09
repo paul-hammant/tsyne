@@ -11,8 +11,11 @@
     "postinstall": "node scripts/postinstall.js",
     "prepublishOnly": "npm run build:bridge:all && npm run build",
     "example": "npm run build && node examples/calculator.js",
-    "test": "npm run test:calculator",
+    "test": "npm run test:unit && npm run test:integration",
+    "test:unit": "jest",
+    "test:integration": "npm run test:calculator",
     "test:calculator": "npm run build && node test-apps/calculator/calculator.test.js",
+    "test:calculator:logic": "jest calculator-logic.test.ts",
     "test:calculator:headed": "npm run build && JYNE_HEADED=1 node test-apps/calculator/calculator.test.js",
     "run:calculator": "npm run build && node test-apps/calculator/calculator.js",
     "clean": "rm -rf dist bin"
@@ -29,7 +32,10 @@
   "author": "",
   "license": "MIT",
   "devDependencies": {
+    "@types/jest": "^29.0.0",
     "@types/node": "^20.0.0",
+    "jest": "^29.0.0",
+    "ts-jest": "^29.0.0",
     "typescript": "^5.0.0"
   },
   "dependencies": {},
