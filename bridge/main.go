@@ -113,10 +113,20 @@ func (b *Bridge) handleMessage(msg Message) {
 		b.handleCreateSelect(msg)
 	case "createSlider":
 		b.handleCreateSlider(msg)
+	case "createProgressBar":
+		b.handleCreateProgressBar(msg)
+	case "createScroll":
+		b.handleCreateScroll(msg)
+	case "createGrid":
+		b.handleCreateGrid(msg)
 	case "setText":
 		b.handleSetText(msg)
 	case "getText":
 		b.handleGetText(msg)
+	case "setProgress":
+		b.handleSetProgress(msg)
+	case "getProgress":
+		b.handleGetProgress(msg)
 	case "setChecked":
 		b.handleSetChecked(msg)
 	case "getChecked":
@@ -448,6 +458,94 @@ func (b *Bridge) handleCreateSlider(msg Message) {
 	})
 }
 
+func (b *Bridge) handleCreateProgressBar(msg Message) {
+	widgetID := msg.Payload["id"].(string)
+	infinite, _ := msg.Payload["infinite"].(bool)
+
+	var progressBar fyne.CanvasObject
+
+	if infinite {
+		progressBar = widget.NewProgressBarInfinite()
+	} else {
+		pb := widget.NewProgressBar()
+		// Set initial value if provided
+		if initialValue, ok := msg.Payload["value"].(float64); ok {
+			pb.Value = initialValue
+		}
+		progressBar = pb
+	}
+
+	b.mu.Lock()
+	b.widgets[widgetID] = progressBar
+	b.widgetMeta[widgetID] = WidgetMetadata{Type: "progressbar", Text: ""}
+	b.mu.Unlock()
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+		Result:  map[string]interface{}{"widgetId": widgetID},
+	})
+}
+
+func (b *Bridge) handleCreateScroll(msg Message) {
+	widgetID := msg.Payload["id"].(string)
+	contentID := msg.Payload["contentId"].(string)
+
+	b.mu.RLock()
+	content, exists := b.widgets[contentID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Content widget not found",
+		})
+		return
+	}
+
+	scroll := container.NewScroll(content)
+
+	b.mu.Lock()
+	b.widgets[widgetID] = scroll
+	b.widgetMeta[widgetID] = WidgetMetadata{Type: "scroll", Text: ""}
+	b.mu.Unlock()
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+		Result:  map[string]interface{}{"widgetId": widgetID},
+	})
+}
+
+func (b *Bridge) handleCreateGrid(msg Message) {
+	widgetID := msg.Payload["id"].(string)
+	columns := int(msg.Payload["columns"].(float64))
+	childIDs, _ := msg.Payload["children"].([]interface{})
+
+	var children []fyne.CanvasObject
+	b.mu.RLock()
+	for _, childID := range childIDs {
+		if child, exists := b.widgets[childID.(string)]; exists {
+			children = append(children, child)
+		}
+	}
+	b.mu.RUnlock()
+
+	grid := container.NewGridWithColumns(columns, children...)
+
+	b.mu.Lock()
+	b.widgets[widgetID] = grid
+	b.widgetMeta[widgetID] = WidgetMetadata{Type: "grid", Text: ""}
+	b.mu.Unlock()
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+		Result:  map[string]interface{}{"widgetId": widgetID},
+	})
+}
+
 func (b *Bridge) handleSetText(msg Message) {
 	widgetID := msg.Payload["widgetId"].(string)
 	text := msg.Payload["text"].(string)
@@ -720,6 +818,69 @@ func (b *Bridge) handleGetValue(msg Message) {
 			ID:      msg.ID,
 			Success: false,
 			Error:   "Widget is not a slider",
+		})
+	}
+}
+
+func (b *Bridge) handleSetProgress(msg Message) {
+	widgetID := msg.Payload["widgetId"].(string)
+	value := msg.Payload["value"].(float64)
+
+	b.mu.RLock()
+	widget, exists := b.widgets[widgetID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget not found",
+		})
+		return
+	}
+
+	if pb, ok := widget.(*widget.ProgressBar); ok {
+		pb.SetValue(value)
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: true,
+		})
+	} else {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget is not a progressbar",
+		})
+	}
+}
+
+func (b *Bridge) handleGetProgress(msg Message) {
+	widgetID := msg.Payload["widgetId"].(string)
+
+	b.mu.RLock()
+	widget, exists := b.widgets[widgetID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget not found",
+		})
+		return
+	}
+
+	if pb, ok := widget.(*widget.ProgressBar); ok {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: true,
+			Result:  map[string]interface{}{"value": pb.Value},
+		})
+	} else {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget is not a progressbar",
 		})
 	}
 }
