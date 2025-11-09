@@ -125,3 +125,124 @@ export class HBox {
     ctx.addToCurrentContainer(this.id);
   }
 }
+
+/**
+ * Checkbox widget
+ */
+export class Checkbox extends Widget {
+  constructor(ctx: Context, text: string, onChanged?: (checked: boolean) => void) {
+    const id = ctx.generateId('checkbox');
+    super(ctx, id);
+
+    const payload: any = { id, text };
+
+    if (onChanged) {
+      const callbackId = ctx.generateId('callback');
+      payload.callbackId = callbackId;
+      ctx.bridge.registerEventHandler(callbackId, (data: any) => {
+        onChanged(data.checked);
+      });
+    }
+
+    ctx.bridge.send('createCheckbox', payload);
+    ctx.addToCurrentContainer(id);
+  }
+
+  async setChecked(checked: boolean): Promise<void> {
+    await this.ctx.bridge.send('setChecked', {
+      widgetId: this.id,
+      checked
+    });
+  }
+
+  async getChecked(): Promise<boolean> {
+    const result = await this.ctx.bridge.send('getChecked', {
+      widgetId: this.id
+    });
+    return result.checked;
+  }
+}
+
+/**
+ * Select (dropdown) widget
+ */
+export class Select extends Widget {
+  constructor(ctx: Context, options: string[], onSelected?: (selected: string) => void) {
+    const id = ctx.generateId('select');
+    super(ctx, id);
+
+    const payload: any = { id, options };
+
+    if (onSelected) {
+      const callbackId = ctx.generateId('callback');
+      payload.callbackId = callbackId;
+      ctx.bridge.registerEventHandler(callbackId, (data: any) => {
+        onSelected(data.selected);
+      });
+    }
+
+    ctx.bridge.send('createSelect', payload);
+    ctx.addToCurrentContainer(id);
+  }
+
+  async setSelected(selected: string): Promise<void> {
+    await this.ctx.bridge.send('setSelected', {
+      widgetId: this.id,
+      selected
+    });
+  }
+
+  async getSelected(): Promise<string> {
+    const result = await this.ctx.bridge.send('getSelected', {
+      widgetId: this.id
+    });
+    return result.selected;
+  }
+}
+
+/**
+ * Slider widget
+ */
+export class Slider extends Widget {
+  constructor(
+    ctx: Context,
+    min: number,
+    max: number,
+    initialValue?: number,
+    onChanged?: (value: number) => void
+  ) {
+    const id = ctx.generateId('slider');
+    super(ctx, id);
+
+    const payload: any = { id, min, max };
+
+    if (initialValue !== undefined) {
+      payload.value = initialValue;
+    }
+
+    if (onChanged) {
+      const callbackId = ctx.generateId('callback');
+      payload.callbackId = callbackId;
+      ctx.bridge.registerEventHandler(callbackId, (data: any) => {
+        onChanged(data.value);
+      });
+    }
+
+    ctx.bridge.send('createSlider', payload);
+    ctx.addToCurrentContainer(id);
+  }
+
+  async setValue(value: number): Promise<void> {
+    await this.ctx.bridge.send('setValue', {
+      widgetId: this.id,
+      value
+    });
+  }
+
+  async getValue(): Promise<number> {
+    const result = await this.ctx.bridge.send('getValue', {
+      widgetId: this.id
+    });
+    return result.value;
+  }
+}

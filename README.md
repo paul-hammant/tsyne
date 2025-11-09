@@ -260,6 +260,8 @@ npm run test:calculator:headed
 
 ### Widgets
 
+#### Basic Widgets
+
 - **`button(text, onClick?)`**: Create a button
   - `text`: Button label
   - `onClick`: Click handler (optional)
@@ -270,12 +272,37 @@ npm run test:calculator:headed
 - **`entry(placeholder?)`**: Create a text input
   - `placeholder`: Placeholder text (optional)
 
+#### Input Widgets
+
+- **`checkbox(text, onChanged?)`**: Create a checkbox
+  - `text`: Checkbox label
+  - `onChanged`: Callback when checked state changes (optional)
+  - Methods: `setChecked(checked: boolean)`, `getChecked(): Promise<boolean>`
+
+- **`select(options, onSelected?)`**: Create a dropdown select
+  - `options`: Array of string options
+  - `onSelected`: Callback when selection changes (optional)
+  - Methods: `setSelected(value: string)`, `getSelected(): Promise<string>`
+
+- **`slider(min, max, initialValue?, onChanged?)`**: Create a slider
+  - `min`: Minimum value
+  - `max`: Maximum value
+  - `initialValue`: Starting value (optional)
+  - `onChanged`: Callback when value changes (optional)
+  - Methods: `setValue(value: number)`, `getValue(): Promise<number>`
+
 ### Widget Methods
 
-All widgets support these methods:
+Common methods supported by most widgets:
 
-- **`setText(text: string)`**: Update widget text
-- **`getText(): Promise<string>`**: Get widget text
+- **`setText(text: string)`**: Update widget text (Button, Label, Entry)
+- **`getText(): Promise<string>`**: Get widget text (Button, Label, Entry)
+
+Widget-specific methods:
+
+- **Checkbox**: `setChecked(checked: boolean)`, `getChecked(): Promise<boolean>`
+- **Select**: `setSelected(value: string)`, `getSelected(): Promise<string>`
+- **Slider**: `setValue(value: number)`, `getValue(): Promise<number>`
 
 ## State Management and Architectural Patterns
 
@@ -479,16 +506,32 @@ Jyne uses a unique architecture to bridge TypeScript and Go:
 
 Check out the `examples/` directory:
 
+**Getting Started:**
 - `hello.ts` - Simple Hello World
-- `calculator.ts` - Calculator with number pad
 - `counter.ts` - Counter with increment/decrement
+- `calculator.ts` - Calculator with number pad
 - `form.ts` - Form with text inputs
+
+**Widget Examples:**
+- `checkbox.ts` - Checkbox with state tracking and callbacks
+- `select.ts` - Dropdown select with multiple options
+- `slider.ts` - Slider controls for volume, brightness, etc.
+
+**Pattern Examples:**
+- `data-binding.ts` - Two-way data binding with observable state
+- `mvc-counter.ts` - Classic MVC pattern (like Swing)
+- `mvvm-todo.ts` - MVVM pattern with data binding
+- `mvp-login.ts` - MVP pattern with passive views
+- `dialog-state.ts` - Dialog state passing pattern
 
 Run an example:
 
 ```bash
 npm run build
 node examples/calculator.js
+node examples/checkbox.js
+node examples/select.js
+node examples/slider.js
 ```
 
 ### Test Applications - Two Architectural Patterns

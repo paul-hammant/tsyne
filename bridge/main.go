@@ -107,10 +107,28 @@ func (b *Bridge) handleMessage(msg Message) {
 		b.handleCreateVBox(msg)
 	case "createHBox":
 		b.handleCreateHBox(msg)
+	case "createCheckbox":
+		b.handleCreateCheckbox(msg)
+	case "createSelect":
+		b.handleCreateSelect(msg)
+	case "createSlider":
+		b.handleCreateSlider(msg)
 	case "setText":
 		b.handleSetText(msg)
 	case "getText":
 		b.handleGetText(msg)
+	case "setChecked":
+		b.handleSetChecked(msg)
+	case "getChecked":
+		b.handleGetChecked(msg)
+	case "setSelected":
+		b.handleSetSelected(msg)
+	case "getSelected":
+		b.handleGetSelected(msg)
+	case "setValue":
+		b.handleSetValue(msg)
+	case "getValue":
+		b.handleGetValue(msg)
 	case "quit":
 		b.handleQuit(msg)
 	// Testing methods
@@ -326,6 +344,110 @@ func (b *Bridge) handleCreateHBox(msg Message) {
 	})
 }
 
+func (b *Bridge) handleCreateCheckbox(msg Message) {
+	widgetID := msg.Payload["id"].(string)
+	text := msg.Payload["text"].(string)
+	callbackID, hasCallback := msg.Payload["callbackId"].(string)
+
+	check := widget.NewCheck(text, func(checked bool) {
+		if hasCallback {
+			b.sendEvent(Event{
+				Type:     "callback",
+				WidgetID: widgetID,
+				Data:     map[string]interface{}{"callbackId": callbackID, "checked": checked},
+			})
+		}
+	})
+
+	b.mu.Lock()
+	b.widgets[widgetID] = check
+	b.widgetMeta[widgetID] = WidgetMetadata{Type: "checkbox", Text: text}
+	if hasCallback {
+		b.callbacks[widgetID] = callbackID
+	}
+	b.mu.Unlock()
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+		Result:  map[string]interface{}{"widgetId": widgetID},
+	})
+}
+
+func (b *Bridge) handleCreateSelect(msg Message) {
+	widgetID := msg.Payload["id"].(string)
+	optionsInterface, _ := msg.Payload["options"].([]interface{})
+	callbackID, hasCallback := msg.Payload["callbackId"].(string)
+
+	// Convert []interface{} to []string
+	options := make([]string, len(optionsInterface))
+	for i, opt := range optionsInterface {
+		options[i] = opt.(string)
+	}
+
+	sel := widget.NewSelect(options, func(selected string) {
+		if hasCallback {
+			b.sendEvent(Event{
+				Type:     "callback",
+				WidgetID: widgetID,
+				Data:     map[string]interface{}{"callbackId": callbackID, "selected": selected},
+			})
+		}
+	})
+
+	b.mu.Lock()
+	b.widgets[widgetID] = sel
+	b.widgetMeta[widgetID] = WidgetMetadata{Type: "select", Text: ""}
+	if hasCallback {
+		b.callbacks[widgetID] = callbackID
+	}
+	b.mu.Unlock()
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+		Result:  map[string]interface{}{"widgetId": widgetID},
+	})
+}
+
+func (b *Bridge) handleCreateSlider(msg Message) {
+	widgetID := msg.Payload["id"].(string)
+	min := msg.Payload["min"].(float64)
+	max := msg.Payload["max"].(float64)
+	callbackID, hasCallback := msg.Payload["callbackId"].(string)
+
+	slider := widget.NewSlider(min, max)
+
+	// Set initial value if provided
+	if initialValue, ok := msg.Payload["value"].(float64); ok {
+		slider.Value = initialValue
+	}
+
+	if hasCallback {
+		slider.OnChanged = func(value float64) {
+			b.sendEvent(Event{
+				Type:     "callback",
+				WidgetID: widgetID,
+				Data:     map[string]interface{}{"callbackId": callbackID, "value": value},
+			})
+		}
+	}
+
+	b.mu.Lock()
+	b.widgets[widgetID] = slider
+	b.widgetMeta[widgetID] = WidgetMetadata{Type: "slider", Text: ""}
+	if hasCallback {
+		b.callbacks[widgetID] = callbackID
+	}
+	b.mu.Unlock()
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+		Result:  map[string]interface{}{"widgetId": widgetID},
+	})
+}
+
 func (b *Bridge) handleSetText(msg Message) {
 	widgetID := msg.Payload["widgetId"].(string)
 	text := msg.Payload["text"].(string)
@@ -411,6 +533,195 @@ func (b *Bridge) handleGetText(msg Message) {
 		Success: true,
 		Result:  map[string]interface{}{"text": text},
 	})
+}
+
+func (b *Bridge) handleSetChecked(msg Message) {
+	widgetID := msg.Payload["widgetId"].(string)
+	checked := msg.Payload["checked"].(bool)
+
+	b.mu.RLock()
+	widget, exists := b.widgets[widgetID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget not found",
+		})
+		return
+	}
+
+	if check, ok := widget.(*widget.Check); ok {
+		check.SetChecked(checked)
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: true,
+		})
+	} else {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget is not a checkbox",
+		})
+	}
+}
+
+func (b *Bridge) handleGetChecked(msg Message) {
+	widgetID := msg.Payload["widgetId"].(string)
+
+	b.mu.RLock()
+	widget, exists := b.widgets[widgetID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget not found",
+		})
+		return
+	}
+
+	if check, ok := widget.(*widget.Check); ok {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: true,
+			Result:  map[string]interface{}{"checked": check.Checked},
+		})
+	} else {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget is not a checkbox",
+		})
+	}
+}
+
+func (b *Bridge) handleSetSelected(msg Message) {
+	widgetID := msg.Payload["widgetId"].(string)
+	selected := msg.Payload["selected"].(string)
+
+	b.mu.RLock()
+	widget, exists := b.widgets[widgetID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget not found",
+		})
+		return
+	}
+
+	if sel, ok := widget.(*widget.Select); ok {
+		sel.SetSelected(selected)
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: true,
+		})
+	} else {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget is not a select",
+		})
+	}
+}
+
+func (b *Bridge) handleGetSelected(msg Message) {
+	widgetID := msg.Payload["widgetId"].(string)
+
+	b.mu.RLock()
+	widget, exists := b.widgets[widgetID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget not found",
+		})
+		return
+	}
+
+	if sel, ok := widget.(*widget.Select); ok {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: true,
+			Result:  map[string]interface{}{"selected": sel.Selected},
+		})
+	} else {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget is not a select",
+		})
+	}
+}
+
+func (b *Bridge) handleSetValue(msg Message) {
+	widgetID := msg.Payload["widgetId"].(string)
+	value := msg.Payload["value"].(float64)
+
+	b.mu.RLock()
+	widget, exists := b.widgets[widgetID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget not found",
+		})
+		return
+	}
+
+	if slider, ok := widget.(*widget.Slider); ok {
+		slider.SetValue(value)
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: true,
+		})
+	} else {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget is not a slider",
+		})
+	}
+}
+
+func (b *Bridge) handleGetValue(msg Message) {
+	widgetID := msg.Payload["widgetId"].(string)
+
+	b.mu.RLock()
+	widget, exists := b.widgets[widgetID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget not found",
+		})
+		return
+	}
+
+	if slider, ok := widget.(*widget.Slider); ok {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: true,
+			Result:  map[string]interface{}{"value": slider.Value},
+		})
+	} else {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget is not a slider",
+		})
+	}
 }
 
 func (b *Bridge) handleQuit(msg Message) {
