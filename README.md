@@ -303,6 +303,69 @@ npm run test:calculator:headed
   - `infinite`: Set to true for indeterminate progress (optional)
   - Methods: `setProgress(value: number)`, `getProgress(): Promise<number>`
 
+### Dialogs
+
+Jyne provides common dialog methods on the Window class for user interactions:
+
+#### Information and Error Dialogs
+
+- **`window.showInfo(title, message)`**: Show an information dialog
+  - `title`: Dialog title
+  - `message`: Information message to display
+  - Returns: `Promise<void>`
+
+- **`window.showError(title, message)`**: Show an error dialog
+  - `title`: Dialog title
+  - `message`: Error message to display
+  - Returns: `Promise<void>`
+
+#### Confirmation Dialog
+
+- **`window.showConfirm(title, message)`**: Show a confirmation dialog
+  - `title`: Dialog title
+  - `message`: Confirmation message
+  - Returns: `Promise<boolean>` - true if confirmed, false if cancelled
+
+#### File Dialogs
+
+- **`window.showFileOpen()`**: Show a file open dialog
+  - Returns: `Promise<string | null>` - selected file path or null if cancelled
+
+- **`window.showFileSave(filename?)`**: Show a file save dialog
+  - `filename`: Default filename (optional, defaults to 'untitled.txt')
+  - Returns: `Promise<string | null>` - selected file path or null if cancelled
+
+#### Dialog Examples
+
+```typescript
+// Information dialog
+await win.showInfo('Success', 'File saved successfully!');
+
+// Error dialog
+await win.showError('Error', 'Failed to connect to server');
+
+// Confirmation dialog
+const confirmed = await win.showConfirm(
+  'Delete File',
+  'Are you sure you want to delete this file?'
+);
+if (confirmed) {
+  // Delete the file
+}
+
+// File open dialog
+const filePath = await win.showFileOpen();
+if (filePath) {
+  console.log('Selected file:', filePath);
+}
+
+// File save dialog
+const savePath = await win.showFileSave('document.txt');
+if (savePath) {
+  console.log('Save to:', savePath);
+}
+```
+
 ### Widget Methods
 
 Common methods supported by most widgets:
@@ -533,6 +596,11 @@ Check out the `examples/` directory:
 - `scroll.ts` - Scrollable container for long content
 - `grid.ts` - Grid layout calculator example
 
+**Dialog Examples:**
+- `dialogs-info.ts` - Information and error dialogs
+- `dialogs-confirm.ts` - Confirmation dialogs for critical actions
+- `dialogs-file.ts` - File open and save dialogs
+
 **Pattern Examples:**
 - `data-binding.ts` - Two-way data binding with observable state
 - `mvc-counter.ts` - Classic MVC pattern (like Swing)
@@ -551,6 +619,9 @@ node examples/slider.js
 node examples/progressbar.js
 node examples/scroll.js
 node examples/grid.js
+node examples/dialogs-info.js
+node examples/dialogs-confirm.js
+node examples/dialogs-file.js
 ```
 
 ### Test Applications - Two Architectural Patterns
