@@ -246,3 +246,94 @@ export class Slider extends Widget {
     return result.value;
   }
 }
+
+/**
+ * ProgressBar widget
+ */
+export class ProgressBar extends Widget {
+  constructor(ctx: Context, initialValue?: number, infinite?: boolean) {
+    const id = ctx.generateId('progressbar');
+    super(ctx, id);
+
+    const payload: any = { id, infinite: infinite || false };
+
+    if (!infinite && initialValue !== undefined) {
+      payload.value = initialValue;
+    }
+
+    ctx.bridge.send('createProgressBar', payload);
+    ctx.addToCurrentContainer(id);
+  }
+
+  async setProgress(value: number): Promise<void> {
+    await this.ctx.bridge.send('setProgress', {
+      widgetId: this.id,
+      value
+    });
+  }
+
+  async getProgress(): Promise<number> {
+    const result = await this.ctx.bridge.send('getProgress', {
+      widgetId: this.id
+    });
+    return result.value;
+  }
+}
+
+/**
+ * Scroll container
+ */
+export class Scroll {
+  private ctx: Context;
+  public id: string;
+
+  constructor(ctx: Context, builder: () => void) {
+    this.ctx = ctx;
+    this.id = ctx.generateId('scroll');
+
+    // Push a new container context
+    ctx.pushContainer();
+
+    // Execute the builder function to collect content
+    builder();
+
+    // Pop the container and get the single child (content)
+    const children = ctx.popContainer();
+
+    if (children.length !== 1) {
+      throw new Error('Scroll container must have exactly one child');
+    }
+
+    const contentId = children[0];
+
+    // Create the Scroll with the content
+    ctx.bridge.send('createScroll', { id: this.id, contentId });
+    ctx.addToCurrentContainer(this.id);
+  }
+}
+
+/**
+ * Grid layout container
+ */
+export class Grid {
+  private ctx: Context;
+  public id: string;
+
+  constructor(ctx: Context, columns: number, builder: () => void) {
+    this.ctx = ctx;
+    this.id = ctx.generateId('grid');
+
+    // Push a new container context
+    ctx.pushContainer();
+
+    // Execute the builder function to collect children
+    builder();
+
+    // Pop the container and get the children
+    const children = ctx.popContainer();
+
+    // Create the Grid with the children
+    ctx.bridge.send('createGrid', { id: this.id, columns, children });
+    ctx.addToCurrentContainer(this.id);
+  }
+}

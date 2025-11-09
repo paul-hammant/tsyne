@@ -257,6 +257,11 @@ npm run test:calculator:headed
 
 - **`vbox(builder)`**: Vertical box layout
 - **`hbox(builder)`**: Horizontal box layout
+- **`grid(columns, builder)`**: Grid layout with specified number of columns
+  - `columns`: Number of columns in the grid
+  - `builder`: Function that defines grid children
+- **`scroll(builder)`**: Scrollable container for long content
+  - `builder`: Function that defines scrollable content (must have exactly one child)
 
 ### Widgets
 
@@ -291,6 +296,13 @@ npm run test:calculator:headed
   - `onChanged`: Callback when value changes (optional)
   - Methods: `setValue(value: number)`, `getValue(): Promise<number>`
 
+#### Display Widgets
+
+- **`progressbar(initialValue?, infinite?)`**: Create a progress bar
+  - `initialValue`: Starting progress value 0.0 to 1.0 (optional)
+  - `infinite`: Set to true for indeterminate progress (optional)
+  - Methods: `setProgress(value: number)`, `getProgress(): Promise<number>`
+
 ### Widget Methods
 
 Common methods supported by most widgets:
@@ -303,6 +315,7 @@ Widget-specific methods:
 - **Checkbox**: `setChecked(checked: boolean)`, `getChecked(): Promise<boolean>`
 - **Select**: `setSelected(value: string)`, `getSelected(): Promise<string>`
 - **Slider**: `setValue(value: number)`, `getValue(): Promise<number>`
+- **ProgressBar**: `setProgress(value: number)`, `getProgress(): Promise<number>`
 
 ## State Management and Architectural Patterns
 
@@ -516,6 +529,9 @@ Check out the `examples/` directory:
 - `checkbox.ts` - Checkbox with state tracking and callbacks
 - `select.ts` - Dropdown select with multiple options
 - `slider.ts` - Slider controls for volume, brightness, etc.
+- `progressbar.ts` - Progress indicators for downloads and loading
+- `scroll.ts` - Scrollable container for long content
+- `grid.ts` - Grid layout calculator example
 
 **Pattern Examples:**
 - `data-binding.ts` - Two-way data binding with observable state
@@ -532,6 +548,9 @@ node examples/calculator.js
 node examples/checkbox.js
 node examples/select.js
 node examples/slider.js
+node examples/progressbar.js
+node examples/scroll.js
+node examples/grid.js
 ```
 
 ### Test Applications - Two Architectural Patterns

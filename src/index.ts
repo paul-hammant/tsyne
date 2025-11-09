@@ -1,6 +1,6 @@
 import { App, AppOptions } from './app';
 import { Context } from './context';
-import { Button, Label, Entry, VBox, HBox, Checkbox, Select, Slider } from './widgets';
+import { Button, Label, Entry, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid } from './widgets';
 import { Window, WindowOptions } from './window';
 
 // Global context for the declarative API
@@ -117,8 +117,38 @@ export function slider(
   return new Slider(globalContext, min, max, initialValue, onChanged);
 }
 
+/**
+ * Create a progress bar widget
+ */
+export function progressbar(initialValue?: number, infinite?: boolean): ProgressBar {
+  if (!globalContext) {
+    throw new Error('progressbar() must be called within an app context');
+  }
+  return new ProgressBar(globalContext, initialValue, infinite);
+}
+
+/**
+ * Create a scroll container
+ */
+export function scroll(builder: () => void): Scroll {
+  if (!globalContext) {
+    throw new Error('scroll() must be called within an app context');
+  }
+  return new Scroll(globalContext, builder);
+}
+
+/**
+ * Create a grid layout container
+ */
+export function grid(columns: number, builder: () => void): Grid {
+  if (!globalContext) {
+    throw new Error('grid() must be called within an app context');
+  }
+  return new Grid(globalContext, columns, builder);
+}
+
 // Export classes for advanced usage
-export { App, Window, Button, Label, Entry, VBox, HBox, Checkbox, Select, Slider };
+export { App, Window, Button, Label, Entry, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid };
 export type { AppOptions, WindowOptions };
 
 // Export state management utilities
