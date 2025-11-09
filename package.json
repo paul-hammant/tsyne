@@ -7,7 +7,9 @@
   "scripts": {
     "build": "tsc",
     "build:bridge": "cd bridge && go build -o ../bin/jyne-bridge",
-    "prepare": "npm run build:bridge && npm run build",
+    "build:bridge:all": "./scripts/build-all-platforms.sh",
+    "postinstall": "node scripts/postinstall.js",
+    "prepublishOnly": "npm run build:bridge:all && npm run build",
     "example": "npm run build && node examples/calculator.js",
     "test": "npm run test:calculator",
     "test:calculator": "npm run build && node test-apps/calculator/calculator.test.js",
@@ -36,8 +38,13 @@
   },
   "files": [
     "dist",
-    "bin",
+    "bin/jyne-bridge-*",
+    "bridge",
+    "scripts/postinstall.js",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "QUICKSTART.md",
+    "TESTING.md",
+    "ARCHITECTURE.md"
   ]
 }

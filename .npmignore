@@ -1,6 +1,6 @@
 src/
 examples/
-bridge/
+test-apps/
 tsconfig.json
 .git/
 .gitignore
@@ -9,3 +9,9 @@ tsconfig.json
 node_modules/
 .vscode/
 .idea/
+.github/
+build.sh
+scripts/build-all-platforms.sh
+bin/jyne-bridge
+!bin/jyne-bridge-*
+CONTRIBUTING.md
