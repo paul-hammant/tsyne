@@ -121,6 +121,12 @@ func (b *Bridge) handleMessage(msg Message) {
 		b.handleCreateScroll(msg)
 	case "createGrid":
 		b.handleCreateGrid(msg)
+	case "createRadioGroup":
+		b.handleCreateRadioGroup(msg)
+	case "createSplit":
+		b.handleCreateSplit(msg)
+	case "createTabs":
+		b.handleCreateTabs(msg)
 	case "setText":
 		b.handleSetText(msg)
 	case "getText":
@@ -141,6 +147,10 @@ func (b *Bridge) handleMessage(msg Message) {
 		b.handleSetValue(msg)
 	case "getValue":
 		b.handleGetValue(msg)
+	case "setRadioSelected":
+		b.handleSetRadioSelected(msg)
+	case "getRadioSelected":
+		b.handleGetRadioSelected(msg)
 	case "showInfo":
 		b.handleShowInfo(msg)
 	case "showError":
@@ -1061,6 +1071,221 @@ func (b *Bridge) handleShowFileSave(msg Message) {
 		// Note: Fyne doesn't have a direct API to set default filename in ShowFileSave
 		// This would need to be enhanced with NewFileSave and SetFileName
 	}
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+	})
+}
+
+func (b *Bridge) handleCreateRadioGroup(msg Message) {
+	id := msg.Payload["id"].(string)
+	optionsInterface := msg.Payload["options"].([]interface{})
+
+	// Convert []interface{} to []string
+	options := make([]string, len(optionsInterface))
+	for i, v := range optionsInterface {
+		options[i] = v.(string)
+	}
+
+	var callbackID string
+	hasCallback := false
+	if cid, ok := msg.Payload["callbackId"].(string); ok {
+		callbackID = cid
+		hasCallback = true
+	}
+
+	// Create radio group with change callback
+	radio := widget.NewRadioGroup(options, func(selected string) {
+		if hasCallback {
+			b.sendEvent(Event{
+				Type: "callback",
+				Data: map[string]interface{}{
+					"callbackId": callbackID,
+					"selected":   selected,
+				},
+			})
+		}
+	})
+
+	// Set initial selection if provided
+	if initialSelected, ok := msg.Payload["selected"].(string); ok {
+		radio.Selected = initialSelected
+	}
+
+	b.mu.Lock()
+	b.widgets[id] = radio
+	b.widgetMeta[id] = WidgetMetadata{
+		Type: "radiogroup",
+		Text: "", // Radio groups don't have a single text value
+	}
+	b.mu.Unlock()
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+	})
+}
+
+func (b *Bridge) handleSetRadioSelected(msg Message) {
+	widgetID := msg.Payload["widgetId"].(string)
+	selected := msg.Payload["selected"].(string)
+
+	b.mu.RLock()
+	widget, exists := b.widgets[widgetID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget not found",
+		})
+		return
+	}
+
+	if radio, ok := widget.(*widget.RadioGroup); ok {
+		radio.SetSelected(selected)
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: true,
+		})
+	} else {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget is not a radio group",
+		})
+	}
+}
+
+func (b *Bridge) handleGetRadioSelected(msg Message) {
+	widgetID := msg.Payload["widgetId"].(string)
+
+	b.mu.RLock()
+	widget, exists := b.widgets[widgetID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget not found",
+		})
+		return
+	}
+
+	if radio, ok := widget.(*widget.RadioGroup); ok {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: true,
+			Result:  map[string]interface{}{"selected": radio.Selected},
+		})
+	} else {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget is not a radio group",
+		})
+	}
+}
+
+func (b *Bridge) handleCreateSplit(msg Message) {
+	id := msg.Payload["id"].(string)
+	orientation := msg.Payload["orientation"].(string)
+	leadingID := msg.Payload["leadingId"].(string)
+	trailingID := msg.Payload["trailingId"].(string)
+
+	b.mu.RLock()
+	leading, leadingExists := b.widgets[leadingID]
+	trailing, trailingExists := b.widgets[trailingID]
+	b.mu.RUnlock()
+
+	if !leadingExists || !trailingExists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Leading or trailing widget not found",
+		})
+		return
+	}
+
+	var split *container.Split
+	if orientation == "horizontal" {
+		split = container.NewHSplit(leading, trailing)
+	} else {
+		split = container.NewVSplit(leading, trailing)
+	}
+
+	// Set offset if provided (0.0 to 1.0)
+	if offset, ok := msg.Payload["offset"].(float64); ok {
+		split.SetOffset(offset)
+	}
+
+	b.mu.Lock()
+	b.widgets[id] = split
+	b.widgetMeta[id] = WidgetMetadata{
+		Type: "split",
+		Text: "",
+	}
+	b.mu.Unlock()
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+	})
+}
+
+func (b *Bridge) handleCreateTabs(msg Message) {
+	id := msg.Payload["id"].(string)
+	tabsInterface := msg.Payload["tabs"].([]interface{})
+
+	var tabItems []*container.TabItem
+
+	for _, tabInterface := range tabsInterface {
+		tabData := tabInterface.(map[string]interface{})
+		title := tabData["title"].(string)
+		contentID := tabData["contentId"].(string)
+
+		b.mu.RLock()
+		content, exists := b.widgets[contentID]
+		b.mu.RUnlock()
+
+		if !exists {
+			b.sendResponse(Response{
+				ID:      msg.ID,
+				Success: false,
+				Error:   fmt.Sprintf("Tab content widget not found: %s", contentID),
+			})
+			return
+		}
+
+		tabItems = append(tabItems, container.NewTabItem(title, content))
+	}
+
+	tabs := container.NewAppTabs(tabItems...)
+
+	// Set location if provided (top, bottom, leading, trailing)
+	if location, ok := msg.Payload["location"].(string); ok {
+		switch location {
+		case "top":
+			tabs.SetTabLocation(container.TabLocationTop)
+		case "bottom":
+			tabs.SetTabLocation(container.TabLocationBottom)
+		case "leading":
+			tabs.SetTabLocation(container.TabLocationLeading)
+		case "trailing":
+			tabs.SetTabLocation(container.TabLocationTrailing)
+		}
+	}
+
+	b.mu.Lock()
+	b.widgets[id] = tabs
+	b.widgetMeta[id] = WidgetMetadata{
+		Type: "tabs",
+		Text: "",
+	}
+	b.mu.Unlock()
 
 	b.sendResponse(Response{
 		ID:      msg.ID,

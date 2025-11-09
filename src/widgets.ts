@@ -337,3 +337,134 @@ export class Grid {
     ctx.addToCurrentContainer(this.id);
   }
 }
+
+/**
+ * RadioGroup widget
+ */
+export class RadioGroup extends Widget {
+  constructor(ctx: Context, options: string[], initialSelected?: string, onSelected?: (selected: string) => void) {
+    const id = ctx.generateId('radiogroup');
+    super(ctx, id);
+
+    const payload: any = { id, options };
+
+    if (initialSelected !== undefined) {
+      payload.selected = initialSelected;
+    }
+
+    if (onSelected) {
+      const callbackId = ctx.generateId('callback');
+      payload.callbackId = callbackId;
+      ctx.bridge.registerEventHandler(callbackId, (data: any) => {
+        onSelected(data.selected);
+      });
+    }
+
+    ctx.bridge.send('createRadioGroup', payload);
+    ctx.addToCurrentContainer(id);
+  }
+
+  async setSelected(selected: string): Promise<void> {
+    await this.ctx.bridge.send('setRadioSelected', {
+      widgetId: this.id,
+      selected
+    });
+  }
+
+  async getSelected(): Promise<string> {
+    const result = await this.ctx.bridge.send('getRadioSelected', {
+      widgetId: this.id
+    });
+    return result.selected;
+  }
+}
+
+/**
+ * Split container (horizontal or vertical)
+ */
+export class Split {
+  private ctx: Context;
+  public id: string;
+
+  constructor(ctx: Context, orientation: 'horizontal' | 'vertical', leadingBuilder: () => void, trailingBuilder: () => void, offset?: number) {
+    this.ctx = ctx;
+    this.id = ctx.generateId('split');
+
+    // Build leading content
+    ctx.pushContainer();
+    leadingBuilder();
+    const leadingChildren = ctx.popContainer();
+    if (leadingChildren.length !== 1) {
+      throw new Error('Split leading section must have exactly one child');
+    }
+    const leadingId = leadingChildren[0];
+
+    // Build trailing content
+    ctx.pushContainer();
+    trailingBuilder();
+    const trailingChildren = ctx.popContainer();
+    if (trailingChildren.length !== 1) {
+      throw new Error('Split trailing section must have exactly one child');
+    }
+    const trailingId = trailingChildren[0];
+
+    // Create the split container
+    const payload: any = {
+      id: this.id,
+      orientation,
+      leadingId,
+      trailingId
+    };
+
+    if (offset !== undefined) {
+      payload.offset = offset;
+    }
+
+    ctx.bridge.send('createSplit', payload);
+    ctx.addToCurrentContainer(this.id);
+  }
+}
+
+/**
+ * Tabs container (AppTabs)
+ */
+export class Tabs {
+  private ctx: Context;
+  public id: string;
+
+  constructor(ctx: Context, tabDefinitions: Array<{title: string, builder: () => void}>, location?: 'top' | 'bottom' | 'leading' | 'trailing') {
+    this.ctx = ctx;
+    this.id = ctx.generateId('tabs');
+
+    // Build each tab's content
+    const tabs: Array<{title: string, contentId: string}> = [];
+
+    for (const tabDef of tabDefinitions) {
+      ctx.pushContainer();
+      tabDef.builder();
+      const children = ctx.popContainer();
+
+      if (children.length !== 1) {
+        throw new Error(`Tab "${tabDef.title}" must have exactly one child widget`);
+      }
+
+      tabs.push({
+        title: tabDef.title,
+        contentId: children[0]
+      });
+    }
+
+    // Create the tabs container
+    const payload: any = {
+      id: this.id,
+      tabs
+    };
+
+    if (location) {
+      payload.location = location;
+    }
+
+    ctx.bridge.send('createTabs', payload);
+    ctx.addToCurrentContainer(this.id);
+  }
+}

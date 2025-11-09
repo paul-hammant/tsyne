@@ -1,6 +1,6 @@
 import { App, AppOptions } from './app';
 import { Context } from './context';
-import { Button, Label, Entry, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid } from './widgets';
+import { Button, Label, Entry, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, Split, Tabs } from './widgets';
 import { Window, WindowOptions } from './window';
 
 // Global context for the declarative API
@@ -147,8 +147,63 @@ export function grid(columns: number, builder: () => void): Grid {
   return new Grid(globalContext, columns, builder);
 }
 
+/**
+ * Create a radio group widget
+ */
+export function radiogroup(
+  options: string[],
+  initialSelected?: string,
+  onSelected?: (selected: string) => void
+): RadioGroup {
+  if (!globalContext) {
+    throw new Error('radiogroup() must be called within an app context');
+  }
+  return new RadioGroup(globalContext, options, initialSelected, onSelected);
+}
+
+/**
+ * Create a horizontal split container
+ */
+export function hsplit(
+  leadingBuilder: () => void,
+  trailingBuilder: () => void,
+  offset?: number
+): Split {
+  if (!globalContext) {
+    throw new Error('hsplit() must be called within an app context');
+  }
+  return new Split(globalContext, 'horizontal', leadingBuilder, trailingBuilder, offset);
+}
+
+/**
+ * Create a vertical split container
+ */
+export function vsplit(
+  leadingBuilder: () => void,
+  trailingBuilder: () => void,
+  offset?: number
+): Split {
+  if (!globalContext) {
+    throw new Error('vsplit() must be called within an app context');
+  }
+  return new Split(globalContext, 'vertical', leadingBuilder, trailingBuilder, offset);
+}
+
+/**
+ * Create a tabs container
+ */
+export function tabs(
+  tabDefinitions: Array<{title: string, builder: () => void}>,
+  location?: 'top' | 'bottom' | 'leading' | 'trailing'
+): Tabs {
+  if (!globalContext) {
+    throw new Error('tabs() must be called within an app context');
+  }
+  return new Tabs(globalContext, tabDefinitions, location);
+}
+
 // Export classes for advanced usage
-export { App, Window, Button, Label, Entry, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid };
+export { App, Window, Button, Label, Entry, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, Split, Tabs };
 export type { AppOptions, WindowOptions };
 
 // Export state management utilities
