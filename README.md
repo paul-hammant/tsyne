@@ -262,6 +262,17 @@ npm run test:calculator:headed
   - `builder`: Function that defines grid children
 - **`scroll(builder)`**: Scrollable container for long content
   - `builder`: Function that defines scrollable content (must have exactly one child)
+- **`hsplit(leadingBuilder, trailingBuilder, offset?)`**: Horizontal split container with resizable divider
+  - `leadingBuilder`: Function that defines left panel content (must have exactly one child)
+  - `trailingBuilder`: Function that defines right panel content (must have exactly one child)
+  - `offset`: Initial divider position from 0.0 to 1.0 (optional, default 0.5)
+- **`vsplit(leadingBuilder, trailingBuilder, offset?)`**: Vertical split container with resizable divider
+  - `leadingBuilder`: Function that defines top panel content (must have exactly one child)
+  - `trailingBuilder`: Function that defines bottom panel content (must have exactly one child)
+  - `offset`: Initial divider position from 0.0 to 1.0 (optional, default 0.5)
+- **`tabs(tabDefinitions, location?)`**: Tabbed container for organizing content
+  - `tabDefinitions`: Array of {title: string, builder: () => void} objects
+  - `location`: Tab bar position - 'top', 'bottom', 'leading', or 'trailing' (optional, default 'top')
 
 ### Widgets
 
@@ -295,6 +306,12 @@ npm run test:calculator:headed
   - `initialValue`: Starting value (optional)
   - `onChanged`: Callback when value changes (optional)
   - Methods: `setValue(value: number)`, `getValue(): Promise<number>`
+
+- **`radiogroup(options, initialSelected?, onSelected?)`**: Create a radio button group
+  - `options`: Array of string options
+  - `initialSelected`: Initially selected option (optional)
+  - `onSelected`: Callback when selection changes (optional)
+  - Methods: `setSelected(value: string)`, `getSelected(): Promise<string>`
 
 #### Display Widgets
 
@@ -378,6 +395,7 @@ Widget-specific methods:
 - **Checkbox**: `setChecked(checked: boolean)`, `getChecked(): Promise<boolean>`
 - **Select**: `setSelected(value: string)`, `getSelected(): Promise<string>`
 - **Slider**: `setValue(value: number)`, `getValue(): Promise<number>`
+- **RadioGroup**: `setSelected(value: string)`, `getSelected(): Promise<string>`
 - **ProgressBar**: `setProgress(value: number)`, `getProgress(): Promise<number>`
 
 ## State Management and Architectural Patterns
@@ -592,9 +610,12 @@ Check out the `examples/` directory:
 - `checkbox.ts` - Checkbox with state tracking and callbacks
 - `select.ts` - Dropdown select with multiple options
 - `slider.ts` - Slider controls for volume, brightness, etc.
+- `radiogroup.ts` - Radio button groups for mutually exclusive choices
 - `progressbar.ts` - Progress indicators for downloads and loading
 - `scroll.ts` - Scrollable container for long content
 - `grid.ts` - Grid layout calculator example
+- `split.ts` - Resizable horizontal and vertical split containers
+- `tabs.ts` - Tabbed interface for organizing content
 
 **Dialog Examples:**
 - `dialogs-info.ts` - Information and error dialogs
@@ -616,9 +637,12 @@ node examples/calculator.js
 node examples/checkbox.js
 node examples/select.js
 node examples/slider.js
+node examples/radiogroup.js
 node examples/progressbar.js
 node examples/scroll.js
 node examples/grid.js
+node examples/split.js
+node examples/tabs.js
 node examples/dialogs-info.js
 node examples/dialogs-confirm.js
 node examples/dialogs-file.js
