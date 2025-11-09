@@ -13,11 +13,13 @@
     "example": "npm run build && node examples/calculator.js",
     "test": "npm run test:unit && npm run test:integration",
     "test:unit": "jest",
-    "test:integration": "npm run test:calculator",
-    "test:calculator": "npm run build && node test-apps/calculator/calculator.test.js",
+    "test:integration": "npm run test:calculator && npm run test:calculator-simple",
+    "test:calculator": "npm run build && node test-apps/calculator-advanced/calculator.test.js",
     "test:calculator:logic": "jest calculator-logic.test.ts",
-    "test:calculator:headed": "npm run build && JYNE_HEADED=1 node test-apps/calculator/calculator.test.js",
-    "run:calculator": "npm run build && node test-apps/calculator/calculator.js",
+    "test:calculator:headed": "npm run build && JYNE_HEADED=1 node test-apps/calculator-advanced/calculator.test.js",
+    "test:calculator-simple": "npm run build && node test-apps/calculator-simple/calculator.test.js",
+    "run:calculator": "npm run build && node test-apps/calculator-advanced/calculator-ui.js",
+    "run:calculator-simple": "npm run build && node test-apps/calculator-simple/calculator.js",
     "clean": "rm -rf dist bin"
   },
   "keywords": [
