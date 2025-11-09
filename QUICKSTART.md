@@ -1,0 +1,174 @@
+# Jyne Quick Start Guide
+
+Get up and running with Jyne in 5 minutes!
+
+## Installation
+
+```bash
+npm install jyne
+```
+
+## Your First App
+
+Create a file called `hello.js`:
+
+```javascript
+const { app, window, vbox, button, label } = require('jyne');
+
+app({ title: "Hello Jyne" }, () => {
+  window({ title: "Hello World" }, () => {
+    vbox(() => {
+      label("Welcome to Jyne!");
+      button("Click Me", () => {
+        console.log("Button clicked!");
+      });
+    });
+  });
+});
+```
+
+Run it:
+
+```bash
+node hello.js
+```
+
+## Building from Source
+
+If you want to build Jyne from source:
+
+```bash
+# Clone the repository
+git clone https://github.com/paul-hammant/jyne.git
+cd jyne
+
+# Run the build script
+./build.sh
+
+# Or manually:
+npm install
+cd bridge && go mod download && go build -o ../bin/jyne-bridge && cd ..
+npm run build
+```
+
+## More Examples
+
+### Counter App
+
+```javascript
+const { app, window, vbox, hbox, button, label } = require('jyne');
+
+let countLabel;
+let count = 0;
+
+function updateCounter() {
+  countLabel.setText(`Count: ${count}`);
+}
+
+app({ title: "Counter" }, () => {
+  window({ title: "Counter" }, () => {
+    vbox(() => {
+      countLabel = label("Count: 0");
+
+      hbox(() => {
+        button("-", () => { count--; updateCounter(); });
+        button("Reset", () => { count = 0; updateCounter(); });
+        button("+", () => { count++; updateCounter(); });
+      });
+    });
+  });
+});
+```
+
+### Text Input
+
+```javascript
+const { app, window, vbox, button, label, entry } = require('jyne');
+
+let nameEntry;
+let greetingLabel;
+
+app({ title: "Greeter" }, () => {
+  window({ title: "What's your name?" }, () => {
+    vbox(() => {
+      label("Enter your name:");
+      nameEntry = entry("Your name here");
+
+      button("Greet", async () => {
+        const name = await nameEntry.getText();
+        await greetingLabel.setText(`Hello, ${name}!`);
+      });
+
+      greetingLabel = label("");
+    });
+  });
+});
+```
+
+## Available Widgets
+
+- **`label(text)`** - Display text
+- **`button(text, onClick)`** - Clickable button
+- **`entry(placeholder)`** - Text input field
+
+## Available Layouts
+
+- **`vbox(() => { ... })`** - Vertical stack
+- **`hbox(() => { ... })`** - Horizontal stack
+
+## Tips
+
+1. **Keep references**: Save widgets to variables if you need to update them later
+2. **Async methods**: `getText()` is async, use `await`
+3. **Nested layouts**: You can nest `vbox` and `hbox` as deep as needed
+4. **Event handlers**: Button clicks are synchronous, but you can use `async` functions
+
+## Next Steps
+
+- Check out the [examples/](examples/) directory for more complete examples
+- Read the [README.md](README.md) for full documentation
+- See [ARCHITECTURE.md](ARCHITECTURE.md) to understand how Jyne works
+- Review [CONTRIBUTING.md](CONTRIBUTING.md) to contribute new features
+
+## Troubleshooting
+
+**"Cannot find module 'jyne'"**
+- Make sure you've run `npm install jyne`
+- If building from source, run `npm run build`
+
+**Bridge executable not found**
+- Run `npm run build:bridge` to compile the Go bridge
+- Ensure Go 1.21+ is installed
+
+**Window doesn't appear**
+- Make sure you're calling the app function with a builder
+- Check that you've defined at least one window inside the app builder
+
+**Linux: Missing dependencies**
+```bash
+# Debian/Ubuntu
+sudo apt-get install libgl1-mesa-dev xorg-dev
+
+# Fedora
+sudo dnf install libXcursor-devel libXrandr-devel mesa-libGL-devel libXi-devel
+```
+
+## Platform-Specific Notes
+
+### macOS
+- Requires Xcode Command Line Tools: `xcode-select --install`
+- App will appear in the dock when running
+
+### Linux
+- Requires X11 development libraries (see above)
+- Wayland is supported through XWayland
+
+### Windows
+- Requires MinGW-w64 for CGO compilation
+- Recommend using Git Bash or WSL for building
+
+## Getting Help
+
+- **Documentation**: Check the README and ARCHITECTURE docs
+- **Examples**: Look at the example apps in `examples/`
+- **Issues**: Report bugs at https://github.com/paul-hammant/jyne/issues

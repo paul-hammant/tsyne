@@ -1,0 +1,17 @@
+src/
+examples/
+test-apps/
+tsconfig.json
+.git/
+.gitignore
+*.ts
+!*.d.ts
+node_modules/
+.vscode/
+.idea/
+.github/
+build.sh
+scripts/build-all-platforms.sh
+bin/jyne-bridge
+!bin/jyne-bridge-*
+CONTRIBUTING.md

@@ -1,0 +1,145 @@
+#!/usr/bin/env node
+
+/**
+ * Post-install script for Jyne
+ *
+ * This script runs after npm install and does the following:
+ * 1. Detects the current platform (OS + architecture)
+ * 2. Copies the appropriate pre-built binary to bin/jyne-bridge
+ * 3. Makes it executable (on Unix systems)
+ *
+ * If no pre-built binary is found, it falls back to building from source
+ * (requires Go 1.21+)
+ */
+
+const fs = require('fs');
+const path = require('path');
+const { execSync } = require('child_process');
+
+const platform = process.platform;
+const arch = process.arch;
+
+// Map Node.js platform/arch to our binary naming
+function getBinaryName() {
+  const mapping = {
+    'darwin-x64': 'jyne-bridge-darwin-amd64',
+    'darwin-arm64': 'jyne-bridge-darwin-arm64',
+    'linux-x64': 'jyne-bridge-linux-amd64',
+    'win32-x64': 'jyne-bridge-windows-amd64.exe',
+  };
+
+  const key = `${platform}-${arch}`;
+  return mapping[key];
+}
+
+function selectPrebuiltBinary() {
+  const binaryName = getBinaryName();
+
+  if (!binaryName) {
+    console.log(`No pre-built binary for ${platform}-${arch}`);
+    return false;
+  }
+
+  const binDir = path.join(__dirname, '..', 'bin');
+  const sourcePath = path.join(binDir, binaryName);
+  const targetName = platform === 'win32' ? 'jyne-bridge.exe' : 'jyne-bridge';
+  const targetPath = path.join(binDir, targetName);
+
+  if (!fs.existsSync(sourcePath)) {
+    console.log(`Pre-built binary not found: ${binaryName}`);
+    return false;
+  }
+
+  try {
+    // Create bin directory if it doesn't exist
+    if (!fs.existsSync(binDir)) {
+      fs.mkdirSync(binDir, { recursive: true });
+    }
+
+    // Copy the binary
+    fs.copyFileSync(sourcePath, targetPath);
+
+    // Make executable on Unix
+    if (platform !== 'win32') {
+      fs.chmodSync(targetPath, 0o755);
+    }
+
+    console.log(`✓ Installed Jyne bridge for ${platform}-${arch}`);
+    return true;
+  } catch (err) {
+    console.error(`Failed to copy binary: ${err.message}`);
+    return false;
+  }
+}
+
+function buildFromSource() {
+  console.log('Attempting to build Jyne bridge from source...');
+
+  try {
+    // Check if Go is installed
+    execSync('go version', { stdio: 'ignore' });
+  } catch (err) {
+    console.error('');
+    console.error('ERROR: Go is not installed or not in PATH');
+    console.error('');
+    console.error('To use Jyne, you need either:');
+    console.error('  1. A supported platform with pre-built binaries (macOS, Linux, Windows x64)');
+    console.error('  2. Go 1.21+ installed to build from source');
+    console.error('');
+    console.error('Install Go from: https://go.dev/dl/');
+    console.error('');
+    process.exit(1);
+  }
+
+  try {
+    console.log('Building Jyne bridge from source (this may take a minute)...');
+
+    const buildCmd = platform === 'win32'
+      ? 'cd bridge && go build -o ..\\bin\\jyne-bridge.exe'
+      : 'cd bridge && go build -o ../bin/jyne-bridge';
+
+    execSync(buildCmd, {
+      stdio: 'inherit',
+      cwd: path.join(__dirname, '..')
+    });
+
+    console.log('✓ Built Jyne bridge from source');
+    return true;
+  } catch (err) {
+    console.error('');
+    console.error('ERROR: Failed to build Jyne bridge from source');
+    console.error('');
+    console.error('This may be due to missing platform dependencies.');
+    console.error('On Linux, you may need: libgl1-mesa-dev xorg-dev');
+    console.error('On macOS, you may need: Xcode Command Line Tools');
+    console.error('On Windows, you may need: MinGW-w64 for CGO');
+    console.error('');
+    process.exit(1);
+  }
+}
+
+// Main installation logic
+function install() {
+  console.log('Installing Jyne...');
+
+  // Try pre-built binary first
+  if (selectPrebuiltBinary()) {
+    return;
+  }
+
+  // Fall back to building from source
+  console.log('');
+  console.log('No pre-built binary available for your platform.');
+  buildFromSource();
+}
+
+// Run installation
+try {
+  install();
+} catch (err) {
+  console.error('');
+  console.error('ERROR: Jyne installation failed');
+  console.error(err.message);
+  console.error('');
+  process.exit(1);
+}
