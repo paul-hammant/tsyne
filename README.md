@@ -277,6 +277,169 @@ All widgets support these methods:
 - **`setText(text: string)`**: Update widget text
 - **`getText(): Promise<string>`**: Get widget text
 
+## State Management and Architectural Patterns
+
+Jyne provides powerful state management utilities and supports multiple architectural patterns (MVC, MVVM, MVP) for building scalable applications.
+
+### State Passing and Two-Way Communication
+
+Jyne supports:
+- **Passing state into components**: Initialize widgets with data from your application
+- **Retrieving state back**: Get data from dialogs and forms (dialog pattern)
+- **Two-way data binding**: Keep state synchronized with UI automatically
+- **Observable state**: React to state changes automatically
+
+### Quick State Management Examples
+
+#### Observable State
+
+```typescript
+import { ObservableState } from 'jyne';
+
+const count = new ObservableState(0);
+let countLabel: any;
+
+// Subscribe to state changes
+count.subscribe((newValue) => {
+  countLabel?.setText(`Count: ${newValue}`);
+});
+
+app({ title: "State Demo" }, () => {
+  window({ title: "Observable State" }, () => {
+    vbox(() => {
+      countLabel = label("Count: 0");
+      button("Increment", () => count.set(count.get() + 1));
+    });
+  });
+});
+```
+
+#### State Store (Centralized State)
+
+```typescript
+import { StateStore } from 'jyne';
+
+interface AppState {
+  user: string;
+  count: number;
+}
+
+const store = new StateStore<AppState>({
+  user: 'Guest',
+  count: 0
+});
+
+// Subscribe to all state changes
+store.subscribe(state => {
+  console.log('State changed:', state);
+  updateUI(state);
+});
+
+// Update state
+store.set('user', 'John');
+store.update(s => ({ ...s, count: s.count + 1 }));
+```
+
+#### Dialog State Passing
+
+```typescript
+// Pass state into a dialog and get results back
+const dialog = new ProfileDialog(currentProfile);
+const result = await dialog.show();
+
+if (result.confirmed) {
+  store.update(state => ({
+    ...state,
+    profile: result.data
+  }));
+}
+```
+
+### Architectural Patterns
+
+Jyne supports standard UI architectural patterns:
+
+| Pattern | Best For | Example |
+|---------|----------|---------|
+| **MVC** | Traditional desktop apps, Swing-like architecture | [mvc-counter.ts](examples/mvc-counter.ts) |
+| **MVVM** | Data-heavy apps with automatic UI sync | [mvvm-todo.ts](examples/mvvm-todo.ts) |
+| **MVP** | Maximum testability, swappable views | [mvp-login.ts](examples/mvp-login.ts) |
+| **Data Binding** | Form inputs, real-time sync | [data-binding.ts](examples/data-binding.ts) |
+
+#### MVC Example
+
+```typescript
+// Model - Business logic
+class CounterModel extends Model {
+  private count = 0;
+  increment() { this.count++; this.notifyChanged(); }
+  getCount() { return this.count; }
+}
+
+// View - UI presentation
+class CounterView {
+  createUI(onIncrement: () => void) {
+    vbox(() => {
+      this.label = label('Count: 0');
+      button('Increment', onIncrement);
+    });
+  }
+}
+
+// Controller - Connects Model and View
+class CounterController {
+  constructor(private model: CounterModel, private view: CounterView) {
+    this.model.subscribe(() => this.updateView());
+  }
+  handleIncrement() { this.model.increment(); }
+}
+```
+
+#### MVVM Example
+
+```typescript
+// ViewModel with observable properties
+class TodoViewModel extends ViewModel {
+  todos = new ObservableState<TodoItem[]>([]);
+  newTodoText = new ObservableState('');
+
+  addTodo() {
+    this.model.addTodo(this.newTodoText.get());
+    this.newTodoText.set('');
+    this.updateFromModel();
+  }
+}
+
+// View binds to ViewModel
+class TodoView {
+  constructor(private viewModel: TodoViewModel) {
+    // Automatic UI updates when state changes
+    this.viewModel.todos.subscribe(() => this.updateUI());
+  }
+}
+```
+
+**See [PATTERNS.md](PATTERNS.md) for complete documentation on all architectural patterns, data binding, and state management.**
+
+### State Management Examples
+
+Check out these comprehensive examples:
+
+- **[data-binding.ts](examples/data-binding.ts)** - Two-way data binding with observable state
+- **[mvc-counter.ts](examples/mvc-counter.ts)** - Classic MVC pattern (like Swing)
+- **[mvvm-todo.ts](examples/mvvm-todo.ts)** - MVVM pattern with data binding
+- **[mvp-login.ts](examples/mvp-login.ts)** - MVP pattern with passive views
+- **[dialog-state.ts](examples/dialog-state.ts)** - Dialog state passing pattern
+
+Run the examples:
+
+```bash
+npm run build
+node examples/data-binding.js
+node examples/mvc-counter.js
+node examples/mvvm-todo.js
+```
+
 ## Architecture
 
 Jyne uses a unique architecture to bridge TypeScript and Go:
@@ -521,6 +684,15 @@ MIT License - see [LICENSE](LICENSE) file for details
 - **[QUICKSTART.md](QUICKSTART.md)** - Get started in 5 minutes
 - **[README.md](README.md)** - You are here! Main documentation
 - **[PROS_AND_CONS.md](PROS_AND_CONS.md)** - Jyne vs Electron/Tauri comparison and decision guide
+- **[LLM.md](LLM.md)** - Quick reference guide for LLMs
+
+### State Management and Patterns
+- **[PATTERNS.md](PATTERNS.md)** - Complete guide to architectural patterns (MVC, MVVM, MVP), state management, and data binding
+- **[examples/data-binding.ts](examples/data-binding.ts)** - Observable state and computed state examples
+- **[examples/mvc-counter.ts](examples/mvc-counter.ts)** - MVC pattern implementation
+- **[examples/mvvm-todo.ts](examples/mvvm-todo.ts)** - MVVM pattern with ViewModels
+- **[examples/mvp-login.ts](examples/mvp-login.ts)** - MVP pattern with passive views
+- **[examples/dialog-state.ts](examples/dialog-state.ts)** - Dialog state passing pattern
 
 ### Testing
 - **[TESTING.md](TESTING.md)** - Complete guide to JyneTest testing framework

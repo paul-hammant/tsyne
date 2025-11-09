@@ -85,3 +85,15 @@ export function entry(placeholder?: string): Entry {
 // Export classes for advanced usage
 export { App, Window, Button, Label, Entry, VBox, HBox };
 export type { AppOptions, WindowOptions };
+
+// Export state management utilities
+export {
+  ObservableState,
+  ComputedState,
+  StateStore,
+  TwoWayBinding,
+  DialogResult,
+  ViewModel,
+  Model
+} from './state';
+export type { BindingOptions } from './state';
