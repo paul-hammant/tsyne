@@ -520,6 +520,7 @@ MIT License - see [LICENSE](LICENSE) file for details
 ### Getting Started
 - **[QUICKSTART.md](QUICKSTART.md)** - Get started in 5 minutes
 - **[README.md](README.md)** - You are here! Main documentation
+- **[PROS_AND_CONS.md](PROS_AND_CONS.md)** - Jyne vs Electron/Tauri comparison and decision guide
 
 ### Testing
 - **[TESTING.md](TESTING.md)** - Complete guide to JyneTest testing framework
