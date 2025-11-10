@@ -1,6 +1,6 @@
 import { App, AppOptions } from './app';
 import { Context } from './context';
-import { Button, Label, Entry, MultiLineEntry, PasswordEntry, Separator, Hyperlink, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, Split, Tabs, Toolbar, Table, List } from './widgets';
+import { Button, Label, Entry, MultiLineEntry, PasswordEntry, Separator, Hyperlink, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, Split, Tabs, Toolbar, Table, List, Center, Card, Accordion, Form } from './widgets';
 import { Window, WindowOptions } from './window';
 
 // Global context for the declarative API
@@ -279,6 +279,50 @@ export function list(items: string[], onSelected?: (index: number, item: string)
 }
 
 /**
+ * Create a center layout (centers content)
+ */
+export function center(builder: () => void): Center {
+  if (!globalContext) {
+    throw new Error('center() must be called within an app context');
+  }
+  return new Center(globalContext, builder);
+}
+
+/**
+ * Create a card container with title, subtitle, and content
+ */
+export function card(title: string, subtitle: string, builder: () => void): Card {
+  if (!globalContext) {
+    throw new Error('card() must be called within an app context');
+  }
+  return new Card(globalContext, title, subtitle, builder);
+}
+
+/**
+ * Create an accordion (collapsible sections)
+ */
+export function accordion(items: Array<{title: string, builder: () => void}>): Accordion {
+  if (!globalContext) {
+    throw new Error('accordion() must be called within an app context');
+  }
+  return new Accordion(globalContext, items);
+}
+
+/**
+ * Create a form with labeled fields and submit/cancel buttons
+ */
+export function form(
+  items: Array<{label: string, widget: any}>,
+  onSubmit?: () => void,
+  onCancel?: () => void
+): Form {
+  if (!globalContext) {
+    throw new Error('form() must be called within an app context');
+  }
+  return new Form(globalContext, items, onSubmit, onCancel);
+}
+
+/**
  * Set the application theme
  */
 export async function setTheme(theme: 'dark' | 'light'): Promise<void> {
@@ -299,7 +343,7 @@ export async function getTheme(): Promise<'dark' | 'light'> {
 }
 
 // Export classes for advanced usage
-export { App, Window, Button, Label, Entry, MultiLineEntry, PasswordEntry, Separator, Hyperlink, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, Split, Tabs, Toolbar, Table, List };
+export { App, Window, Button, Label, Entry, MultiLineEntry, PasswordEntry, Separator, Hyperlink, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, Split, Tabs, Toolbar, Table, List, Center, Card, Accordion, Form };
 export type { AppOptions, WindowOptions };
 
 // Export state management utilities

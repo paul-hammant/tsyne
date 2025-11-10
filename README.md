@@ -282,6 +282,30 @@ Window methods:
 - **`tabs(tabDefinitions, location?)`**: Tabbed container for organizing content
   - `tabDefinitions`: Array of {title: string, builder: () => void} objects
   - `location`: Tab bar position - 'top', 'bottom', 'leading', or 'trailing' (optional, default 'top')
+- **`center(builder)`**: Center layout - centers content horizontally and vertically
+  - `builder`: Function that defines centered content (must have exactly one child)
+  - Perfect for dialogs, splash screens, and focused content
+
+### Container Widgets
+
+- **`card(title, subtitle, builder)`**: Card container with title, subtitle, and content
+  - `title`: Card title text
+  - `subtitle`: Card subtitle text
+  - `builder`: Function that defines card content (must have exactly one child)
+  - Example: `card('Profile', 'User information', () => { vbox(() => { ... }) })`
+
+- **`accordion(items)`**: Accordion widget with collapsible sections
+  - `items`: Array of {title: string, builder: () => void} objects
+  - Each section can be expanded/collapsed independently
+  - Saves vertical space by hiding content until needed
+  - Example: `accordion([{ title: 'Section 1', builder: () => { vbox(() => { ... }) } }])`
+
+- **`form(items, onSubmit?, onCancel?)`**: Form widget with labeled fields and buttons
+  - `items`: Array of {label: string, widget: any} objects defining form fields
+  - `onSubmit`: Optional callback when Submit button is clicked
+  - `onCancel`: Optional callback when Cancel button is clicked
+  - Automatically creates Submit and Cancel buttons if callbacks provided
+  - Example: `form([{ label: 'Name', widget: nameEntry }, { label: 'Email', widget: emailEntry }], () => { ... })`
 
 ### Widgets
 
@@ -1063,6 +1087,7 @@ Check out the `examples/` directory:
 
 **Widget Examples:**
 - `input-widgets.ts` - MultiLineEntry, PasswordEntry, Separator, and Hyperlink widgets
+- `advanced-widgets.ts` - Card, Accordion, Form, and Center layout
 - `checkbox.ts` - Checkbox with state tracking and callbacks
 - `select.ts` - Dropdown select with multiple options
 - `slider.ts` - Slider controls for volume, brightness, etc.
@@ -1104,6 +1129,7 @@ Run an example:
 npm run build
 node examples/calculator.js
 node examples/input-widgets.js
+node examples/advanced-widgets.js
 node examples/checkbox.js
 node examples/select.js
 node examples/slider.js

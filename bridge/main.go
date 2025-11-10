@@ -133,6 +133,14 @@ func (b *Bridge) handleMessage(msg Message) {
 		b.handleCreateScroll(msg)
 	case "createGrid":
 		b.handleCreateGrid(msg)
+	case "createCenter":
+		b.handleCreateCenter(msg)
+	case "createCard":
+		b.handleCreateCard(msg)
+	case "createAccordion":
+		b.handleCreateAccordion(msg)
+	case "createForm":
+		b.handleCreateForm(msg)
 	case "createRadioGroup":
 		b.handleCreateRadioGroup(msg)
 	case "createSplit":
@@ -704,6 +712,173 @@ func (b *Bridge) handleCreateGrid(msg Message) {
 	b.mu.Lock()
 	b.widgets[widgetID] = grid
 	b.widgetMeta[widgetID] = WidgetMetadata{Type: "grid", Text: ""}
+	b.mu.Unlock()
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+		Result:  map[string]interface{}{"widgetId": widgetID},
+	})
+}
+
+func (b *Bridge) handleCreateCenter(msg Message) {
+	widgetID := msg.Payload["id"].(string)
+	childID := msg.Payload["childId"].(string)
+
+	b.mu.RLock()
+	child, exists := b.widgets[childID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Child widget not found",
+		})
+		return
+	}
+
+	centered := container.NewCenter(child)
+
+	b.mu.Lock()
+	b.widgets[widgetID] = centered
+	b.widgetMeta[widgetID] = WidgetMetadata{Type: "center", Text: ""}
+	b.mu.Unlock()
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+		Result:  map[string]interface{}{"widgetId": widgetID},
+	})
+}
+
+func (b *Bridge) handleCreateCard(msg Message) {
+	widgetID := msg.Payload["id"].(string)
+	title := msg.Payload["title"].(string)
+	subtitle, _ := msg.Payload["subtitle"].(string)
+	contentID := msg.Payload["contentId"].(string)
+
+	b.mu.RLock()
+	content, exists := b.widgets[contentID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Content widget not found",
+		})
+		return
+	}
+
+	card := widget.NewCard(title, subtitle, content)
+
+	b.mu.Lock()
+	b.widgets[widgetID] = card
+	b.widgetMeta[widgetID] = WidgetMetadata{Type: "card", Text: title}
+	b.mu.Unlock()
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+		Result:  map[string]interface{}{"widgetId": widgetID},
+	})
+}
+
+func (b *Bridge) handleCreateAccordion(msg Message) {
+	widgetID := msg.Payload["id"].(string)
+	itemsInterface := msg.Payload["items"].([]interface{})
+
+	var accordionItems []*widget.AccordionItem
+
+	for _, itemInterface := range itemsInterface {
+		itemData := itemInterface.(map[string]interface{})
+		title := itemData["title"].(string)
+		contentID := itemData["contentId"].(string)
+
+		b.mu.RLock()
+		content, exists := b.widgets[contentID]
+		b.mu.RUnlock()
+
+		if exists {
+			accordionItem := widget.NewAccordionItem(title, content)
+			accordionItems = append(accordionItems, accordionItem)
+		}
+	}
+
+	accordion := widget.NewAccordion(accordionItems...)
+
+	b.mu.Lock()
+	b.widgets[widgetID] = accordion
+	b.widgetMeta[widgetID] = WidgetMetadata{Type: "accordion", Text: ""}
+	b.mu.Unlock()
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+		Result:  map[string]interface{}{"widgetId": widgetID},
+	})
+}
+
+func (b *Bridge) handleCreateForm(msg Message) {
+	widgetID := msg.Payload["id"].(string)
+	itemsInterface := msg.Payload["items"].([]interface{})
+
+	var formItems []*widget.FormItem
+
+	for _, itemInterface := range itemsInterface {
+		itemData := itemInterface.(map[string]interface{})
+		label := itemData["label"].(string)
+		widgetIDStr := itemData["widgetId"].(string)
+
+		b.mu.RLock()
+		w, exists := b.widgets[widgetIDStr]
+		b.mu.RUnlock()
+
+		if exists {
+			formItem := widget.NewFormItem(label, w)
+			formItems = append(formItems, formItem)
+		}
+	}
+
+	// Create form with optional submit/cancel handlers
+	var onSubmit func()
+	var onCancel func()
+
+	if submitCallbackID, ok := msg.Payload["submitCallbackId"].(string); ok {
+		onSubmit = func() {
+			b.sendEvent(Event{
+				Type: "callback",
+				Data: map[string]interface{}{"callbackId": submitCallbackID},
+			})
+		}
+	}
+
+	if cancelCallbackID, ok := msg.Payload["cancelCallbackId"].(string); ok {
+		onCancel = func() {
+			b.sendEvent(Event{
+				Type: "callback",
+				Data: map[string]interface{}{"callbackId": cancelCallbackID},
+			})
+		}
+	}
+
+	var form *widget.Form
+	if onSubmit != nil || onCancel != nil {
+		form = &widget.Form{
+			Items:    formItems,
+			OnSubmit: onSubmit,
+			OnCancel: onCancel,
+		}
+	} else {
+		form = &widget.Form{
+			Items: formItems,
+		}
+	}
+
+	b.mu.Lock()
+	b.widgets[widgetID] = form
+	b.widgetMeta[widgetID] = WidgetMetadata{Type: "form", Text: ""}
 	b.mu.Unlock()
 
 	b.sendResponse(Response{

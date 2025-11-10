@@ -666,3 +666,148 @@ export class List {
     });
   }
 }
+
+/**
+ * Center layout - centers content in the available space
+ */
+export class Center {
+  private ctx: Context;
+  public id: string;
+
+  constructor(ctx: Context, builder: () => void) {
+    this.ctx = ctx;
+    this.id = ctx.generateId('center');
+
+    // Build child content
+    ctx.pushContainer();
+    builder();
+    const children = ctx.popContainer();
+
+    if (children.length !== 1) {
+      throw new Error('Center must have exactly one child');
+    }
+
+    ctx.bridge.send('createCenter', {
+      id: this.id,
+      childId: children[0]
+    });
+
+    ctx.addToCurrentContainer(this.id);
+  }
+}
+
+/**
+ * Card container with title, subtitle, and content
+ */
+export class Card {
+  private ctx: Context;
+  public id: string;
+
+  constructor(ctx: Context, title: string, subtitle: string, builder: () => void) {
+    this.ctx = ctx;
+    this.id = ctx.generateId('card');
+
+    // Build card content
+    ctx.pushContainer();
+    builder();
+    const children = ctx.popContainer();
+
+    if (children.length !== 1) {
+      throw new Error('Card must have exactly one child');
+    }
+
+    ctx.bridge.send('createCard', {
+      id: this.id,
+      title,
+      subtitle,
+      contentId: children[0]
+    });
+
+    ctx.addToCurrentContainer(this.id);
+  }
+}
+
+/**
+ * Accordion - collapsible sections
+ */
+export class Accordion {
+  private ctx: Context;
+  public id: string;
+
+  constructor(ctx: Context, items: Array<{title: string, builder: () => void}>) {
+    this.ctx = ctx;
+    this.id = ctx.generateId('accordion');
+
+    // Build each accordion item's content
+    const accordionItems: Array<{title: string, contentId: string}> = [];
+
+    for (const item of items) {
+      ctx.pushContainer();
+      item.builder();
+      const children = ctx.popContainer();
+
+      if (children.length !== 1) {
+        throw new Error(`Accordion item "${item.title}" must have exactly one child`);
+      }
+
+      accordionItems.push({
+        title: item.title,
+        contentId: children[0]
+      });
+    }
+
+    ctx.bridge.send('createAccordion', {
+      id: this.id,
+      items: accordionItems
+    });
+
+    ctx.addToCurrentContainer(this.id);
+  }
+}
+
+/**
+ * Form widget with labeled fields and submit/cancel buttons
+ */
+export class Form {
+  private ctx: Context;
+  public id: string;
+
+  constructor(
+    ctx: Context,
+    items: Array<{label: string, widget: any}>,
+    onSubmit?: () => void,
+    onCancel?: () => void
+  ) {
+    this.ctx = ctx;
+    this.id = ctx.generateId('form');
+
+    const formItems = items.map(item => ({
+      label: item.label,
+      widgetId: item.widget.id
+    }));
+
+    const payload: any = {
+      id: this.id,
+      items: formItems
+    };
+
+    if (onSubmit) {
+      const submitCallbackId = ctx.generateId('callback');
+      payload.submitCallbackId = submitCallbackId;
+      ctx.bridge.registerEventHandler(submitCallbackId, () => {
+        onSubmit();
+      });
+    }
+
+    if (onCancel) {
+      const cancelCallbackId = ctx.generateId('callback');
+      payload.cancelCallbackId = cancelCallbackId;
+      ctx.bridge.registerEventHandler(cancelCallbackId, () => {
+        onCancel();
+      });
+    }
+
+    ctx.bridge.send('createForm', payload);
+    ctx.addToCurrentContainer(this.id);
+  }
+}
