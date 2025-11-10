@@ -21,4 +21,8 @@ vbox(() => {
   button('Go to Form Demo', () => {
     browserContext.changePage('/form');
   });
+
+  button('Go to Menu Demo', () => {
+    browserContext.changePage('/menu-demo');
+  });
 });

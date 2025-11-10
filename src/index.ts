@@ -432,4 +432,4 @@ export type { WidgetStyle, WidgetSelector } from './styles';
 
 // Export browser system
 export { Browser, createBrowser } from './browser';
-export type { BrowserContext } from './browser';
+export type { BrowserContext, PageMenuItem } from './browser';

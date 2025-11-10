@@ -19,6 +19,16 @@ import { Window } from './window';
 import { Entry } from './widgets';
 
 /**
+ * Custom menu item that pages can define
+ */
+export interface PageMenuItem {
+  label: string;
+  onSelected: () => void;
+  disabled?: boolean;
+  checked?: boolean;
+}
+
+/**
  * Browser context passed to loaded pages
  */
 export interface BrowserContext {
@@ -34,8 +44,17 @@ export interface BrowserContext {
   /** Reload current page */
   reload: () => Promise<void>;
 
+  /** Stop loading current page */
+  stop: () => void;
+
+  /** Add custom menu items to browser menu bar */
+  addPageMenu: (menuLabel: string, items: PageMenuItem[]) => void;
+
   /** Current URL */
   currentUrl: string;
+
+  /** Is page currently loading */
+  isLoading: boolean;
 
   /** Browser instance */
   browser: Browser;
@@ -61,11 +80,15 @@ export class Browser {
   private app: App;
   private window: Window;
   private addressBarEntry: Entry | null = null;
+  private loadingLabel: any = null;
+  private stopButton: any = null;
   private history: HistoryEntry[] = [];
   private historyIndex: number = -1;
   private currentUrl: string = '';
   private loading: boolean = false;
+  private currentRequest: any = null;
   private currentPageBuilder: (() => void) | null = null;
+  private pageMenus: Map<string, PageMenuItem[]> = new Map();
 
   constructor(options?: { title?: string; width?: number; height?: number }) {
     this.app = new App({ title: options?.title || 'Jyne Browser' });
@@ -90,6 +113,109 @@ export class Browser {
     win.setContent(() => {
       this.buildWindowContent();
     });
+
+    // Set up browser menu bar
+    this.setupMenuBar();
+  }
+
+  /**
+   * Set up the browser menu bar
+   */
+  private async setupMenuBar(): Promise<void> {
+    const menuDefinition: any[] = [
+      {
+        label: 'File',
+        items: [
+          {
+            label: 'Close Window',
+            onSelected: () => {
+              process.exit(0);
+            }
+          }
+        ]
+      },
+      {
+        label: 'View',
+        items: [
+          {
+            label: 'Reload',
+            onSelected: () => {
+              this.reload().catch(err => console.error('Reload failed:', err));
+            }
+          },
+          {
+            label: 'Stop',
+            onSelected: () => {
+              this.stop();
+            }
+          },
+          {
+            isSeparator: true
+          },
+          {
+            label: 'View Page Source',
+            onSelected: async () => {
+              if (this.historyIndex >= 0) {
+                const entry = this.history[this.historyIndex];
+                console.log('\n========== Page Source ==========');
+                console.log(`URL: ${entry.url}`);
+                console.log('==================================');
+                console.log(entry.pageCode);
+                console.log('==================================\n');
+              }
+            }
+          }
+        ]
+      },
+      {
+        label: 'History',
+        items: [
+          {
+            label: 'Back',
+            onSelected: () => {
+              this.back().catch(err => console.error('Back failed:', err));
+            },
+            disabled: this.historyIndex <= 0
+          },
+          {
+            label: 'Forward',
+            onSelected: () => {
+              this.forward().catch(err => console.error('Forward failed:', err));
+            },
+            disabled: this.historyIndex >= this.history.length - 1
+          }
+        ]
+      },
+      {
+        label: 'Help',
+        items: [
+          {
+            label: 'About Jyne Browser',
+            onSelected: async () => {
+              await this.window.showInfo(
+                'About Jyne Browser',
+                'Jyne Browser - Load TypeScript pages from web servers\n\nVersion 0.1.0'
+              );
+            }
+          }
+        ]
+      }
+    ];
+
+    // Add page-defined menus
+    for (const [menuLabel, items] of this.pageMenus.entries()) {
+      menuDefinition.push({
+        label: menuLabel,
+        items: items.map(item => ({
+          label: item.label,
+          onSelected: item.onSelected,
+          disabled: item.disabled,
+          checked: item.checked
+        }))
+      });
+    }
+
+    await this.window.setMainMenu(menuDefinition);
   }
 
   /**
@@ -113,6 +239,13 @@ export class Browser {
           this.reload().catch(err => console.error('Reload failed:', err));
         });
 
+        // Stop button (only visible when loading)
+        if (this.loading) {
+          this.stopButton = button('✕', () => {
+            this.stop();
+          });
+        }
+
         this.addressBarEntry = entry(this.currentUrl || 'http://');
 
         button('Go', async () => {
@@ -121,6 +254,11 @@ export class Browser {
             await this.changePage(url);
           }
         });
+
+        // Loading indicator
+        if (this.loading) {
+          this.loadingLabel = label('Loading...');
+        }
       });
 
       separator();
@@ -159,9 +297,18 @@ export class Browser {
       this.addressBarEntry.setText(url);
     }
 
+    // Update UI to show loading state
+    this.updateUI();
+
     try {
       // Fetch page code from server
       const pageCode = await this.fetchPage(url);
+
+      // Check if loading was cancelled
+      if (!this.loading) {
+        console.log('Loading cancelled');
+        return;
+      }
 
       // Add to history (clear forward history if navigating from middle)
       if (this.historyIndex < this.history.length - 1) {
@@ -174,10 +321,55 @@ export class Browser {
       // Render the page
       await this.renderPage(pageCode);
     } catch (error) {
-      await this.showError(url, error);
+      if (this.loading) {  // Only show error if not stopped
+        await this.showError(url, error);
+      }
     } finally {
       this.loading = false;
+      this.currentRequest = null;
+      this.updateUI();
     }
+  }
+
+  /**
+   * Stop loading current page
+   */
+  stop(): void {
+    if (!this.loading) {
+      return;
+    }
+
+    console.log('Stopping page load');
+    this.loading = false;
+
+    // Abort current HTTP request
+    if (this.currentRequest) {
+      this.currentRequest.destroy();
+      this.currentRequest = null;
+    }
+
+    this.updateUI();
+  }
+
+  /**
+   * Update UI to reflect current state
+   */
+  private updateUI(): void {
+    // Re-render window to update stop button and loading indicator
+    this.window.setContent(() => {
+      this.buildWindowContent();
+    });
+
+    // Update menu bar to reflect current state
+    this.setupMenuBar();
+  }
+
+  /**
+   * Add custom page menu to browser menu bar
+   */
+  addPageMenu(menuLabel: string, items: PageMenuItem[]): void {
+    this.pageMenus.set(menuLabel, items);
+    this.setupMenuBar();
   }
 
   /**
@@ -274,6 +466,9 @@ export class Browser {
         req.destroy();
         reject(new Error('Request timeout'));
       });
+
+      // Store request so it can be cancelled
+      this.currentRequest = req;
     });
   }
 
@@ -287,7 +482,10 @@ export class Browser {
       forward: () => this.forward(),
       changePage: (url: string) => this.changePage(url),
       reload: () => this.reload(),
+      stop: () => this.stop(),
+      addPageMenu: (menuLabel: string, items: PageMenuItem[]) => this.addPageMenu(menuLabel, items),
       currentUrl: this.currentUrl,
+      isLoading: this.loading,
       browser: this
     };
 

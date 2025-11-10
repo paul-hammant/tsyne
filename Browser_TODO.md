@@ -33,14 +33,14 @@ this.window = this.app.window({ title: '...', width: 800, height: 600 }, (win) =
 
 ### Navigation and Address Bar
 
-- [ ] **Address bar widget** - Display current URL in the browser window
-- [ ] **Editable address bar** - Allow typing URLs to navigate
+- [x] **Address bar widget** - Display current URL in the browser window
+- [x] **Editable address bar** - Allow typing URLs to navigate
 - [ ] **URL validation** - Check URL format before navigation
-- [ ] **Protocol support** - http://, https://, file://, custom protocols
-- [ ] **Back button UI** - Visual button in browser chrome (not just API)
-- [ ] **Forward button UI** - Visual button in browser chrome
-- [ ] **Stop button** - Cancel page loading in progress
-- [ ] **Reload/Refresh button** - Re-fetch current page
+- [x] **Protocol support** - http://, https:// (file:// and custom protocols TODO)
+- [x] **Back button UI** - Visual button in browser chrome (←)
+- [x] **Forward button UI** - Visual button in browser chrome (→)
+- [x] **Stop button** - Cancel page loading in progress (✕, visible when loading)
+- [x] **Reload/Refresh button** - Re-fetch current page (⟳)
 - [ ] **Home button** - Navigate to configured home page
 
 ### History and Bookmarks
@@ -56,11 +56,11 @@ this.window = this.app.window({ title: '...', width: 800, height: 600 }, (win) =
 ### Window and View
 
 - [ ] **Status bar** - Show loading status, URL hover info
-- [ ] **Progress indicator** - Visual feedback during page load
+- [x] **Progress indicator** - Visual feedback during page load (text-based "Loading...")
 - [ ] **Loading spinner** - Animated indicator for async operations
 - [ ] **Title bar updates** - Show page title in window title
 - [ ] **Favicon support** - (if pages could specify icons)
-- [ ] **View source** - Display raw page TypeScript code
+- [x] **View source** - Display raw page TypeScript code (View menu → View Page Source)
 - [ ] **Page info dialog** - Show URL, load time, size, etc.
 - [ ] **Find in page** - Search for text in current page
 - [ ] **Print page** - (complex - would need page rendering)
@@ -377,26 +377,28 @@ Pages should:
 ## Priority Levels
 
 ### P0 - Critical (Breaks basic browser metaphor)
-- [ ] Fix window management (ONE browser window, pages render into it)
-- [ ] Browser chrome UI (address bar, back/forward buttons)
-- [ ] Window size persistence across page navigation
-- [ ] Proper page content isolation
+- [x] Fix window management (ONE browser window, pages render into it)
+- [x] Browser chrome UI (address bar, back/forward buttons)
+- [x] Window size persistence across page navigation
+- [x] Proper page content isolation
 
 ### P1 - Essential (Basic browser functionality)
-- [ ] Address bar with manual URL entry
-- [ ] Reload/refresh button
-- [ ] Stop button for canceling loads
-- [ ] Loading progress indicator
-- [ ] History persistence
+- [x] Address bar with manual URL entry
+- [x] Reload/refresh button
+- [x] Stop button for canceling loads (✕ button, visible when loading)
+- [x] Loading progress indicator (text-based "Loading...")
+- [x] Menu bar with standard items (File, View, History, Help)
+- [x] Page menu API (pages can add custom menus via browserContext.addPageMenu)
+- [ ] History persistence (save across sessions)
 - [ ] Basic page caching
 
 ### P2 - Important (Expected browser features)
 - [ ] Tabbed browsing
 - [ ] Bookmarks
-- [ ] Right-click context menu
-- [ ] Keyboard shortcuts
+- [ ] Right-click context menu (requires Go bridge support for widget context menus)
+- [ ] Keyboard shortcuts (Enter in address bar, Ctrl+R reload, Alt+Left back, etc.)
 - [ ] Find in page
-- [ ] View source
+- [x] View source (View menu → View Page Source, prints to console)
 
 ### P3 - Nice to have (Enhanced UX)
 - [ ] Developer tools
