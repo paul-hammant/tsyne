@@ -313,3 +313,14 @@ export {
   Model
 } from './state';
 export type { BindingOptions } from './state';
+
+// Export styling system
+export {
+  styles,
+  clearStyles,
+  getStyleSheet,
+  StyleSheet,
+  FontFamily,
+  FontStyle
+} from './styles';
+export type { WidgetStyle, WidgetSelector } from './styles';

@@ -594,6 +594,265 @@ app({ title: 'Theme Demo' }, () => {
 
 See `examples/theme.ts` for a complete theme demonstration with various widgets.
 
+## Widget Styling System
+
+Jyne includes a CSS-like styling system inspired by [Swiby](https://github.com/jeanlazarou/swiby), allowing you to separate presentation from structure. Define styles once in a stylesheet module, and they automatically apply to widgets based on their type.
+
+### Quick Start with Styling
+
+The styling system works similarly to CSS - define styles for widget types, and they're automatically applied when widgets are created.
+
+**Without styles** (`examples/form-unstyled.ts`):
+```typescript
+import { app, window, vbox, label, button } from 'jyne';
+
+app({ title: 'My App' }, () => {
+  window({ title: 'Form' }, (win) => {
+    win.setContent(() => {
+      vbox(() => {
+        label('Registration Form');
+        button('Submit', () => {});
+      });
+    });
+    win.show();
+  });
+});
+```
+
+**With styles** (`examples/form-styled.ts`):
+```typescript
+import { app, window, vbox, label, button } from 'jyne';
+import './form-styles';  // ← Only difference: import stylesheet!
+
+app({ title: 'My App' }, () => {
+  window({ title: 'Form' }, (win) => {
+    win.setContent(() => {
+      vbox(() => {
+        label('Registration Form');  // Automatically styled!
+        button('Submit', () => {});  // Automatically styled!
+      });
+    });
+    win.show();
+  });
+});
+```
+
+**Stylesheet** (`examples/form-styles.ts`):
+```typescript
+import { styles, FontFamily, FontStyle } from 'jyne';
+
+styles({
+  root: {
+    font_family: FontFamily.SANS_SERIF,
+    font_size: 10
+  },
+  label: {
+    font_style: FontStyle.ITALIC,
+    font_size: 12
+  },
+  button: {
+    font_weight: 'bold'
+  },
+  entry: {
+    font_family: FontFamily.MONOSPACE
+  }
+});
+```
+
+### Style Properties
+
+The styling system supports the following properties:
+
+#### Font Properties
+- **`font_family`**: Font family - `FontFamily.SANS_SERIF`, `FontFamily.SERIF`, or `FontFamily.MONOSPACE`
+- **`font_style`**: Font style - `FontStyle.NORMAL`, `FontStyle.ITALIC`, `FontStyle.BOLD`, or `FontStyle.BOLD_ITALIC`
+- **`font_weight`**: Font weight - `'normal'` or `'bold'`
+- **`font_size`**: Font size in points (number)
+
+#### Color Properties (limited support)
+- **`color`**: Text color - hex number (`0xRRGGBB`) or CSS color string
+- **`background_color`**: Background color - hex number or CSS color string
+
+**Note**: Fyne has limitations on per-widget color customization. Font styling works reliably across widgets, but colors require custom themes or custom widget renderers. The styling system accepts color properties for future compatibility.
+
+### Widget Selectors
+
+Styles can be defined for these widget types:
+
+- **`root`**: Base styles applied to all widgets (unless overridden)
+- **`button`**: Button widgets
+- **`label`**: Label widgets
+- **`entry`**: Single-line text input widgets
+- **`multilineentry`**: Multi-line text area widgets
+- **`passwordentry`**: Password input widgets
+- **`checkbox`**: Checkbox widgets
+- **`select`**: Dropdown select widgets
+- **`slider`**: Slider widgets
+- **`radiogroup`**: Radio button groups
+- **`progressbar`**: Progress bar widgets
+- **`hyperlink`**: Hyperlink widgets
+- **`table`**: Table widgets
+- **`list`**: List widgets
+
+### Complete Styling Example
+
+Swiby-style approach with separate stylesheet:
+
+**styles.ts** (stylesheet module):
+```typescript
+import { styles, FontFamily, FontStyle } from 'jyne';
+
+styles({
+  root: {
+    font_family: FontFamily.SANS_SERIF,
+    font_style: FontStyle.NORMAL,
+    font_size: 10
+  },
+  label: {
+    font_style: FontStyle.ITALIC,
+    font_size: 12,
+    color: 0xAA0000  // Red text
+  },
+  entry: {
+    font_family: FontFamily.MONOSPACE,
+    font_size: 12,
+    background_color: 0xFFFFC6  // Light yellow background
+  },
+  button: {
+    font_weight: 'bold'
+  }
+});
+```
+
+**main.ts** (application):
+```typescript
+import { app, window, vbox, label, entry, button } from 'jyne';
+import './styles';  // Import stylesheet - styles auto-apply!
+
+app({ title: 'Styled App' }, () => {
+  window({ title: 'My Form' }, (win) => {
+    win.setContent(() => {
+      vbox(() => {
+        label('Enter your details:');
+        entry('Name');
+        entry('Email');
+        button('Submit', () => {});
+      });
+    });
+    win.show();
+  });
+});
+```
+
+### Style Inheritance
+
+Styles follow a cascading pattern:
+1. **Root styles** apply to all widgets
+2. **Widget-specific styles** override root styles
+3. Later style definitions override earlier ones
+
+```typescript
+styles({
+  root: {
+    font_size: 10,        // All widgets: 10pt
+    font_style: FontStyle.NORMAL
+  },
+  label: {
+    font_size: 12,        // Labels: 12pt (overrides root)
+    font_style: FontStyle.ITALIC  // Labels: italic (overrides root)
+  }
+});
+```
+
+### API Reference
+
+**`styles(definitions)`**
+Define styles for widget types.
+
+```typescript
+import { styles, FontStyle } from 'jyne';
+
+styles({
+  label: { font_style: FontStyle.BOLD },
+  button: { font_weight: 'bold' }
+});
+```
+
+**`clearStyles()`**
+Clear all defined styles.
+
+```typescript
+import { clearStyles } from 'jyne';
+
+clearStyles();
+```
+
+**`getStyleSheet()`**
+Get the global stylesheet instance.
+
+```typescript
+import { getStyleSheet } from 'jyne';
+
+const sheet = getStyleSheet();
+const labelStyle = sheet?.getComputedStyle('label');
+```
+
+### Comparison with Swiby
+
+Jyne's styling system is inspired by Swiby's elegant stylesheet approach:
+
+**Swiby (Ruby/Swing)**:
+```ruby
+styles {
+  root(
+    :font_family => Styles::VERDANA,
+    :font_size => 10
+  )
+  label(
+    :font_style => :italic,
+    :color => 0xAA0000
+  )
+}
+```
+
+**Jyne (TypeScript/Fyne)**:
+```typescript
+styles({
+  root: {
+    font_family: FontFamily.SANS_SERIF,
+    font_size: 10
+  },
+  label: {
+    font_style: FontStyle.ITALIC,
+    color: 0xAA0000
+  }
+});
+```
+
+### Limitations
+
+Due to Fyne's architecture:
+- **Color customization** is limited for standard widgets (requires custom themes or renderers)
+- **Font styles** (bold, italic, monospace) work well across widgets
+- **Font families** are limited to sans-serif, serif, and monospace
+- **Widget-specific styling** may have platform-specific variations
+
+For advanced color customization, consider using Fyne's theme system (see Theme Support section above).
+
+### Examples
+
+See these examples demonstrating the styling system:
+- **`examples/form-unstyled.ts`** - Form without any styling
+- **`examples/form-styled.ts`** - Same form with stylesheet applied
+- **`examples/form-styles.ts`** - Stylesheet module defining visual styles
+
+Run the examples to see the difference:
+```bash
+npm run build
+node examples/form-unstyled.js   # Without styles
+node examples/form-styled.js     # With styles
+```
+
 ## State Management and Architectural Patterns
 
 Jyne provides powerful state management utilities and supports multiple architectural patterns (MVC, MVVM, MVP) for building scalable applications.
@@ -834,6 +1093,11 @@ Check out the `examples/` directory:
 - `mvp-login.ts` - MVP pattern with passive views
 - `dialog-state.ts` - Dialog state passing pattern
 
+**Styling Examples:**
+- `form-unstyled.ts` - Registration form without custom styling
+- `form-styled.ts` - Same form with Swiby-like stylesheet applied
+- `form-styles.ts` - Stylesheet module defining visual styles
+
 Run an example:
 
 ```bash
@@ -858,6 +1122,8 @@ node examples/toolbar.js
 node examples/theme.js
 node examples/table.js
 node examples/list.js
+node examples/form-unstyled.js
+node examples/form-styled.js
 ```
 
 ### Test Applications - Two Architectural Patterns

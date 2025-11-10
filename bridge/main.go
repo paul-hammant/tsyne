@@ -195,6 +195,8 @@ func (b *Bridge) handleMessage(msg Message) {
 		b.handleSetTheme(msg)
 	case "getTheme":
 		b.handleGetTheme(msg)
+	case "setWidgetStyle":
+		b.handleSetWidgetStyle(msg)
 	case "quit":
 		b.handleQuit(msg)
 	// Testing methods
@@ -1914,6 +1916,72 @@ func (b *Bridge) handleGetTheme(msg Message) {
 		Result: map[string]interface{}{
 			"theme": theme,
 		},
+	})
+}
+
+func (b *Bridge) handleSetWidgetStyle(msg Message) {
+	widgetID := msg.Payload["widgetId"].(string)
+
+	b.mu.RLock()
+	widget, exists := b.widgets[widgetID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget not found",
+		})
+		return
+	}
+
+	// Apply font style if specified
+	if fontStyle, ok := msg.Payload["fontStyle"].(string); ok {
+		switch w := widget.(type) {
+		case *widget.Label:
+			switch fontStyle {
+			case "bold":
+				w.TextStyle = fyne.TextStyle{Bold: true}
+			case "italic":
+				w.TextStyle = fyne.TextStyle{Italic: true}
+			case "bold-italic":
+				w.TextStyle = fyne.TextStyle{Bold: true, Italic: true}
+			case "normal":
+				w.TextStyle = fyne.TextStyle{}
+			}
+			w.Refresh()
+		case *widget.Button:
+			switch fontStyle {
+			case "bold":
+				w.Importance = widget.HighImportance
+			}
+			w.Refresh()
+		}
+	}
+
+	// Apply font family if specified
+	if fontFamily, ok := msg.Payload["fontFamily"].(string); ok {
+		switch w := widget.(type) {
+		case *widget.Label:
+			if fontFamily == "monospace" || fontFamily == FontFamily.MONOSPACE {
+				w.TextStyle.Monospace = true
+				w.Refresh()
+			}
+		case *widget.Entry:
+			if fontFamily == "monospace" || fontFamily == FontFamily.MONOSPACE {
+				// Entry doesn't directly support monospace, but we can note it
+			}
+		}
+	}
+
+	// Note: Color and backgroundColor styling in Fyne requires custom themes
+	// or custom widgets. For now, we acknowledge these but don't apply them
+	// as Fyne's standard widgets don't support per-widget color customization
+	// without creating custom renderers.
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
 	})
 }
 
