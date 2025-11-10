@@ -292,56 +292,16 @@ export class Browser {
     };
 
     try {
-      // Capture the content builder from page code
-      // Pages currently call jyne.window() which creates a window
-      // We intercept this and extract just the content
-      let capturedContentBuilder: (() => void) | null = null;
-
-      // Create mock jyne object that intercepts window() calls
+      // Pages are now simple content builders - just execute the code
+      // The page code directly builds widgets using jyne API
       const jyne = require('./index');
-      const mockJyne = {
-        ...jyne,
-        // Intercept window() to extract content builder
-        window: (options: any, builder: (win: any) => void) => {
-          // Create mock window that captures setContent() calls
-          const mockWindow = {
-            setContent: (contentBuilder: () => void) => {
-              capturedContentBuilder = contentBuilder;
-            },
-            show: () => {
-              // No-op - browser window is already shown
-            },
-            // Provide other window methods as no-ops
-            showInfo: () => Promise.resolve(),
-            showError: () => Promise.resolve(),
-            showConfirm: () => Promise.resolve(false),
-            showFileOpen: () => Promise.resolve(null),
-            showFileSave: () => Promise.resolve(null),
-            setMainMenu: () => Promise.resolve(),
-            resize: () => {},
-            centerOnScreen: () => {},
-            setFullScreen: () => {}
-          };
 
-          // Call the page's window builder with our mock
-          builder(mockWindow);
-        }
+      // Create a content builder that executes the page code
+      this.currentPageBuilder = () => {
+        // Execute the page code - it will create widgets directly
+        const pageFunction = new Function('browserContext', 'jyne', pageCode);
+        pageFunction(browserContext, jyne);
       };
-
-      // Execute page code with mock jyne
-      const pageFunction = new Function('browserContext', 'jyne', pageCode);
-      pageFunction(browserContext, mockJyne);
-
-      // Update current page builder and re-render window
-      if (capturedContentBuilder) {
-        this.currentPageBuilder = capturedContentBuilder;
-      } else {
-        // Fallback if page doesn't use window().setContent()
-        this.currentPageBuilder = () => {
-          const { label } = require('./index');
-          label('Page rendered without content builder');
-        };
-      }
 
       // Re-render the entire window (chrome + new content)
       this.window.setContent(() => {
