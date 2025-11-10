@@ -2,6 +2,9 @@ import { Context } from './context';
 
 export interface WindowOptions {
   title: string;
+  width?: number;
+  height?: number;
+  fixedSize?: boolean;
 }
 
 /**
@@ -16,10 +19,22 @@ export class Window {
     this.ctx = ctx;
     this.id = ctx.generateId('window');
 
-    ctx.bridge.send('createWindow', {
+    const payload: any = {
       id: this.id,
       title: options.title
-    });
+    };
+
+    if (options.width !== undefined) {
+      payload.width = options.width;
+    }
+    if (options.height !== undefined) {
+      payload.height = options.height;
+    }
+    if (options.fixedSize !== undefined) {
+      payload.fixedSize = options.fixedSize;
+    }
+
+    ctx.bridge.send('createWindow', payload);
 
     if (builder) {
       ctx.pushWindow(this.id);
@@ -151,6 +166,90 @@ export class Window {
         callbackId,
         filename: filename || 'untitled.txt'
       });
+    });
+  }
+
+  /**
+   * Resize the window to the specified dimensions
+   */
+  async resize(width: number, height: number): Promise<void> {
+    await this.ctx.bridge.send('resizeWindow', {
+      windowId: this.id,
+      width,
+      height
+    });
+  }
+
+  /**
+   * Center the window on the screen
+   */
+  async centerOnScreen(): Promise<void> {
+    await this.ctx.bridge.send('centerWindow', {
+      windowId: this.id
+    });
+  }
+
+  /**
+   * Set fullscreen mode
+   */
+  async setFullScreen(fullscreen: boolean): Promise<void> {
+    await this.ctx.bridge.send('setWindowFullScreen', {
+      windowId: this.id,
+      fullscreen
+    });
+  }
+
+  /**
+   * Set the main menu for this window
+   */
+  async setMainMenu(menuDefinition: Array<{
+    label: string;
+    items: Array<{
+      label: string;
+      onSelected?: () => void;
+      isSeparator?: boolean;
+      disabled?: boolean;
+      checked?: boolean;
+    }>;
+  }>): Promise<void> {
+    const menuItems = menuDefinition.map(menu => {
+      const items = menu.items.map(item => {
+        if (item.isSeparator) {
+          return { label: '', isSeparator: true };
+        }
+
+        const menuItem: any = {
+          label: item.label
+        };
+
+        if (item.onSelected) {
+          const callbackId = this.ctx.generateId('callback');
+          menuItem.callbackId = callbackId;
+          this.ctx.bridge.registerEventHandler(callbackId, () => {
+            item.onSelected!();
+          });
+        }
+
+        if (item.disabled !== undefined) {
+          menuItem.disabled = item.disabled;
+        }
+
+        if (item.checked !== undefined) {
+          menuItem.checked = item.checked;
+        }
+
+        return menuItem;
+      });
+
+      return {
+        label: menu.label,
+        items
+      };
+    });
+
+    await this.ctx.bridge.send('setMainMenu', {
+      windowId: this.id,
+      menuItems
     });
   }
 }

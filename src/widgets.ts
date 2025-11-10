@@ -468,3 +468,51 @@ export class Tabs {
     ctx.addToCurrentContainer(this.id);
   }
 }
+
+/**
+ * Toolbar widget
+ */
+export class Toolbar {
+  private ctx: Context;
+  public id: string;
+
+  constructor(ctx: Context, toolbarItems: Array<{
+    type: 'action' | 'separator' | 'spacer';
+    label?: string;
+    onAction?: () => void;
+  }>) {
+    this.ctx = ctx;
+    this.id = ctx.generateId('toolbar');
+
+    const items = toolbarItems.map(item => {
+      if (item.type === 'separator') {
+        return { type: 'separator' };
+      }
+
+      if (item.type === 'spacer') {
+        return { type: 'spacer' };
+      }
+
+      // Action item
+      const callbackId = ctx.generateId('callback');
+      if (item.onAction) {
+        ctx.bridge.registerEventHandler(callbackId, () => {
+          item.onAction!();
+        });
+      }
+
+      return {
+        type: 'action',
+        label: item.label || 'Action',
+        callbackId
+      };
+    });
+
+    ctx.bridge.send('createToolbar', {
+      id: this.id,
+      items
+    });
+
+    ctx.addToCurrentContainer(this.id);
+  }
+}

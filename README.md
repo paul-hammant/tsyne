@@ -251,7 +251,16 @@ npm run test:calculator:headed
 
 - **`window(options, builder)`**: Create a window
   - `options.title`: Window title
+  - `options.width`: Window width in pixels (optional)
+  - `options.height`: Window height in pixels (optional)
+  - `options.fixedSize`: Prevent window resizing (optional, default false)
   - `builder`: Function that defines the window content
+
+Window methods:
+- **`window.resize(width, height)`**: Resize the window
+- **`window.centerOnScreen()`**: Center the window on screen
+- **`window.setFullScreen(fullscreen)`**: Enter or exit fullscreen mode
+- **`window.setMainMenu(menuDefinition)`**: Set the main menu bar (see Menu Bar section)
 
 ### Layouts
 
@@ -320,6 +329,12 @@ npm run test:calculator:headed
   - `infinite`: Set to true for indeterminate progress (optional)
   - Methods: `setProgress(value: number)`, `getProgress(): Promise<number>`
 
+#### UI Components
+
+- **`toolbar(items)`**: Create a toolbar with actions
+  - `items`: Array of toolbar items with type ('action' | 'separator' | 'spacer'), label, and onAction callback
+  - Example: `toolbar([{type: 'action', label: 'Save', onAction: () => save()}, {type: 'separator'}, {type: 'spacer'}])`
+
 ### Dialogs
 
 Jyne provides common dialog methods on the Window class for user interactions:
@@ -382,6 +397,75 @@ if (savePath) {
   console.log('Save to:', savePath);
 }
 ```
+
+### Menu Bar
+
+Create application menus using `window.setMainMenu()`:
+
+```typescript
+await win.setMainMenu([
+  {
+    label: 'File',
+    items: [
+      {
+        label: 'New',
+        onSelected: () => { /* handle new */ }
+      },
+      {
+        label: 'Open...',
+        onSelected: async () => {
+          const filePath = await win.showFileOpen();
+          // handle open
+        }
+      },
+      {
+        isSeparator: true  // Menu separator
+      },
+      {
+        label: 'Exit',
+        onSelected: () => { /* handle exit */ }
+      }
+    ]
+  },
+  {
+    label: 'Edit',
+    items: [
+      {
+        label: 'Cut',
+        onSelected: () => { /* handle cut */ }
+      },
+      {
+        label: 'Copy',
+        onSelected: () => { /* handle copy */ }
+      },
+      {
+        label: 'Paste',
+        onSelected: () => { /* handle paste */ },
+        disabled: true  // Optional: disable menu item
+      }
+    ]
+  },
+  {
+    label: 'View',
+    items: [
+      {
+        label: 'Fullscreen',
+        checked: false,  // Optional: checkmark indicator
+        onSelected: async () => {
+          await win.setFullScreen(true);
+        }
+      }
+    ]
+  }
+]);
+```
+
+Menu item properties:
+- **`label`**: Menu item text
+- **`onSelected`**: Callback when item is clicked
+- **`isSeparator`**: Set to true for separator line (optional)
+- **`disabled`**: Disable the menu item (optional)
+- **`checked`**: Show checkmark (optional)
 
 ### Widget Methods
 
@@ -622,6 +706,11 @@ Check out the `examples/` directory:
 - `dialogs-confirm.ts` - Confirmation dialogs for critical actions
 - `dialogs-file.ts` - File open and save dialogs
 
+**Advanced UI Examples:**
+- `window-sizing.ts` - Window sizing, positioning, and fullscreen
+- `menu-bar.ts` - Application menu bars with File/Edit/Help menus
+- `toolbar.ts` - Toolbars with actions, separators, and spacers
+
 **Pattern Examples:**
 - `data-binding.ts` - Two-way data binding with observable state
 - `mvc-counter.ts` - Classic MVC pattern (like Swing)
@@ -646,6 +735,9 @@ node examples/tabs.js
 node examples/dialogs-info.js
 node examples/dialogs-confirm.js
 node examples/dialogs-file.js
+node examples/window-sizing.js
+node examples/menu-bar.js
+node examples/toolbar.js
 ```
 
 ### Test Applications - Two Architectural Patterns

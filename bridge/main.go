@@ -161,6 +161,16 @@ func (b *Bridge) handleMessage(msg Message) {
 		b.handleShowFileOpen(msg)
 	case "showFileSave":
 		b.handleShowFileSave(msg)
+	case "resizeWindow":
+		b.handleResizeWindow(msg)
+	case "centerWindow":
+		b.handleCenterWindow(msg)
+	case "setWindowFullScreen":
+		b.handleSetWindowFullScreen(msg)
+	case "setMainMenu":
+		b.handleSetMainMenu(msg)
+	case "createToolbar":
+		b.handleCreateToolbar(msg)
 	case "quit":
 		b.handleQuit(msg)
 	// Testing methods
@@ -188,6 +198,18 @@ func (b *Bridge) handleCreateWindow(msg Message) {
 	windowID := msg.Payload["id"].(string)
 
 	win := b.app.NewWindow(title)
+
+	// Set window size if provided
+	if width, ok := msg.Payload["width"].(float64); ok {
+		if height, ok := msg.Payload["height"].(float64); ok {
+			win.Resize(fyne.NewSize(float32(width), float32(height)))
+		}
+	}
+
+	// Set fixed size if provided
+	if fixedSize, ok := msg.Payload["fixedSize"].(bool); ok && fixedSize {
+		win.SetFixedSize(true)
+	}
 
 	b.mu.Lock()
 	b.windows[windowID] = win
@@ -1283,6 +1305,207 @@ func (b *Bridge) handleCreateTabs(msg Message) {
 	b.widgets[id] = tabs
 	b.widgetMeta[id] = WidgetMetadata{
 		Type: "tabs",
+		Text: "",
+	}
+	b.mu.Unlock()
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+	})
+}
+
+func (b *Bridge) handleResizeWindow(msg Message) {
+	windowID := msg.Payload["windowId"].(string)
+	width := msg.Payload["width"].(float64)
+	height := msg.Payload["height"].(float64)
+
+	b.mu.RLock()
+	win, exists := b.windows[windowID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Window not found",
+		})
+		return
+	}
+
+	win.Resize(fyne.NewSize(float32(width), float32(height)))
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+	})
+}
+
+func (b *Bridge) handleCenterWindow(msg Message) {
+	windowID := msg.Payload["windowId"].(string)
+
+	b.mu.RLock()
+	win, exists := b.windows[windowID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Window not found",
+		})
+		return
+	}
+
+	win.CenterOnScreen()
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+	})
+}
+
+func (b *Bridge) handleSetWindowFullScreen(msg Message) {
+	windowID := msg.Payload["windowId"].(string)
+	fullscreen := msg.Payload["fullscreen"].(bool)
+
+	b.mu.RLock()
+	win, exists := b.windows[windowID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Window not found",
+		})
+		return
+	}
+
+	win.SetFullScreen(fullscreen)
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+	})
+}
+
+func (b *Bridge) handleSetMainMenu(msg Message) {
+	windowID := msg.Payload["windowId"].(string)
+	menuItemsInterface := msg.Payload["menuItems"].([]interface{})
+
+	b.mu.RLock()
+	win, exists := b.windows[windowID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Window not found",
+		})
+		return
+	}
+
+	// Build menu structure
+	var menus []*fyne.Menu
+	for _, menuInterface := range menuItemsInterface {
+		menuData := menuInterface.(map[string]interface{})
+		label := menuData["label"].(string)
+		itemsInterface := menuData["items"].([]interface{})
+
+		var items []*fyne.MenuItem
+		for _, itemInterface := range itemsInterface {
+			itemData := itemInterface.(map[string]interface{})
+			itemLabel := itemData["label"].(string)
+
+			// Check if this is a separator
+			if isSeparator, ok := itemData["isSeparator"].(bool); ok && isSeparator {
+				items = append(items, fyne.NewMenuItemSeparator())
+				continue
+			}
+
+			// Regular menu item with callback
+			if callbackID, ok := itemData["callbackId"].(string); ok {
+				menuItem := fyne.NewMenuItem(itemLabel, func() {
+					b.sendEvent(Event{
+						Type: "callback",
+						Data: map[string]interface{}{
+							"callbackId": callbackID,
+						},
+					})
+				})
+
+				// Set disabled state if provided
+				if disabled, ok := itemData["disabled"].(bool); ok {
+					menuItem.Disabled = disabled
+				}
+
+				// Set checked state if provided
+				if checked, ok := itemData["checked"].(bool); ok {
+					menuItem.Checked = checked
+				}
+
+				items = append(items, menuItem)
+			}
+		}
+
+		menus = append(menus, fyne.NewMenu(label, items...))
+	}
+
+	mainMenu := fyne.NewMainMenu(menus...)
+	win.SetMainMenu(mainMenu)
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+	})
+}
+
+func (b *Bridge) handleCreateToolbar(msg Message) {
+	id := msg.Payload["id"].(string)
+	itemsInterface := msg.Payload["items"].([]interface{})
+
+	var toolbarItems []widget.ToolbarItem
+
+	for _, itemInterface := range itemsInterface {
+		itemData := itemInterface.(map[string]interface{})
+		itemType := itemData["type"].(string)
+
+		switch itemType {
+		case "action":
+			label := itemData["label"].(string)
+			callbackID := itemData["callbackId"].(string)
+
+			action := widget.NewToolbarAction(
+				nil, // Icon (we'll keep it simple for now)
+				func() {
+					b.sendEvent(Event{
+						Type: "callback",
+						Data: map[string]interface{}{
+							"callbackId": callbackID,
+						},
+					})
+				},
+			)
+			// Store label for reference (Fyne toolbar actions don't show text by default)
+			_ = label
+			toolbarItems = append(toolbarItems, action)
+
+		case "separator":
+			toolbarItems = append(toolbarItems, widget.NewToolbarSeparator())
+
+		case "spacer":
+			toolbarItems = append(toolbarItems, widget.NewToolbarSpacer())
+		}
+	}
+
+	toolbar := widget.NewToolbar(toolbarItems...)
+
+	b.mu.Lock()
+	b.widgets[id] = toolbar
+	b.widgetMeta[id] = WidgetMetadata{
+		Type: "toolbar",
 		Text: "",
 	}
 	b.mu.Unlock()
