@@ -1,4 +1,5 @@
 import { Context } from './context';
+import { applyStyleForWidget, WidgetSelector } from './styles';
 
 /**
  * Base class for all widgets
@@ -10,6 +11,13 @@ export abstract class Widget {
   constructor(ctx: Context, id: string) {
     this.ctx = ctx;
     this.id = id;
+  }
+
+  /**
+   * Apply styles from the global stylesheet to this widget
+   */
+  protected async applyStyles(widgetType: WidgetSelector): Promise<void> {
+    await applyStyleForWidget(this.ctx, this.id, widgetType);
   }
 
   async setText(text: string): Promise<void> {
@@ -45,6 +53,9 @@ export class Button extends Widget {
 
     ctx.bridge.send('createButton', payload);
     ctx.addToCurrentContainer(id);
+
+    // Apply styles from stylesheet (non-blocking)
+    this.applyStyles('button').catch(() => {});
   }
 }
 
@@ -58,6 +69,9 @@ export class Label extends Widget {
 
     ctx.bridge.send('createLabel', { id, text });
     ctx.addToCurrentContainer(id);
+
+    // Apply styles from stylesheet (non-blocking)
+    this.applyStyles('label').catch(() => {});
   }
 }
 
@@ -71,6 +85,9 @@ export class Entry extends Widget {
 
     ctx.bridge.send('createEntry', { id, placeholder: placeholder || '' });
     ctx.addToCurrentContainer(id);
+
+    // Apply styles from stylesheet (non-blocking)
+    this.applyStyles('entry').catch(() => {});
   }
 }
 
@@ -89,6 +106,9 @@ export class MultiLineEntry extends Widget {
 
     ctx.bridge.send('createMultiLineEntry', payload);
     ctx.addToCurrentContainer(id);
+
+    // Apply styles from stylesheet (non-blocking)
+    this.applyStyles('multilineentry').catch(() => {});
   }
 }
 
@@ -102,6 +122,9 @@ export class PasswordEntry extends Widget {
 
     ctx.bridge.send('createPasswordEntry', { id, placeholder: placeholder || '' });
     ctx.addToCurrentContainer(id);
+
+    // Apply styles from stylesheet (non-blocking)
+    this.applyStyles('passwordentry').catch(() => {});
   }
 }
 
