@@ -2,30 +2,17 @@
 
 This document catalogs potential improvements to the Jyne Browser system, inspired by 25+ years of web browser evolution from Web 1.0 through Web 2.0 and beyond.
 
-## Critical Issues (Current Implementation)
+## Critical Issues - ALL RESOLVED ✅
 
-### ❌ Window Management Problem
-**Issue**: Each page creates a new window instead of rendering into the existing browser window.
+### ✅ Window Management - FIXED
+**Was**: Each page created a new window instead of rendering into the existing browser window.
 
-**Current behavior:**
-```typescript
-// WRONG: Creates new window per page
-this.window = this.app.window({ title: '...', width: 800, height: 600 }, (win) => {
-  pageFunction(browserContext, jyne);
-});
-```
-
-**Expected behavior:**
-- Browser has ONE window that persists across page navigations
+**Fixed**:
+- Browser creates ONE persistent window at startup
 - Pages render INTO the browser window (like web browsers)
-- Window size is controlled by user, not by individual pages
-- Page content adapts to browser window size (responsive)
-
-**Fix needed:**
-- Create persistent browser window once at startup
-- Pages use `window.setContent()` to update content only
-- Remove window creation from page code
-- Pages should only define content, not windows
+- Window size is controlled by user (900x700 default), not by individual pages
+- Pages define content only, not windows
+- No more `jyne.window()` calls in pages - just content builders
 
 ---
 
@@ -69,11 +56,11 @@ this.window = this.app.window({ title: '...', width: 800, height: 600 }, (win) =
 
 ### Navigation Behavior
 
-- [ ] **Link following** - Click hyperlinks to navigate (already have hyperlink widget)
+- [x] **Link following** - Click hyperlinks to navigate (hyperlink widget available)
 - [ ] **External links** - Handle links to external websites
 - [ ] **Middle-click = new tab** - (when tabs are implemented)
 - [ ] **Ctrl+Click = new tab** - Keyboard modifiers for navigation
-- [ ] **Right-click context menu** - Page actions, back, forward, reload
+- [x] **Right-click context menu** - widget.setContextMenu() on all widgets
 - [ ] **Keyboard shortcuts** - Ctrl+R (reload), Alt+Left (back), etc.
 - [ ] **Mouse gestures** - Optional navigation via mouse movement
 
@@ -395,7 +382,7 @@ Pages should:
 ### P2 - Important (Expected browser features)
 - [ ] Tabbed browsing
 - [ ] Bookmarks
-- [ ] Right-click context menu (requires Go bridge support for widget context menus)
+- [x] Right-click context menu (widget.setContextMenu() implemented)
 - [ ] Keyboard shortcuts (Enter in address bar, Ctrl+R reload, Alt+Left back, etc.)
 - [ ] Find in page
 - [x] View source (View menu → View Page Source, prints to console)

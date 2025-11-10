@@ -239,6 +239,228 @@ npm run test:calculator:headed
 
 **See [TESTING.md](TESTING.md) for complete documentation and the [calculator test app](test-apps/calculator/) for a comprehensive example.**
 
+## Browser Testing with JyneBrowserTest
+
+Jyne includes **JyneBrowserTest**, a testing framework specifically designed for testing Jyne Browser pages. It automatically starts a test HTTP server and provides navigation helpers for testing multi-page browser applications.
+
+### Quick Browser Test Example
+
+```typescript
+import { browserTest } from 'jyne';
+
+await browserTest(
+  'should navigate between pages',
+  [
+    {
+      path: '/',
+      code: `
+        const { vbox, label, button } = jyne;
+        vbox(() => {
+          label('Home Page');
+          button('Go to About', () => {
+            browserContext.changePage('/about');
+          });
+        });
+      `
+    },
+    {
+      path: '/about',
+      code: `
+        const { vbox, label } = jyne;
+        vbox(() => {
+          label('About Page');
+        });
+      `
+    }
+  ],
+  async (bt) => {
+    await bt.createBrowser('/');
+    const ctx = bt.getContext();
+
+    // Click navigation button
+    const aboutButton = await ctx.findWidget({ text: 'Go to About' });
+    await ctx.clickWidget(aboutButton.id);
+
+    // Verify navigation occurred
+    await new Promise(resolve => setTimeout(resolve, 200));
+    bt.assertUrl('/about');
+  }
+);
+```
+
+### JyneBrowserTest Features
+
+**Automatic Test Server:**
+- Starts HTTP server on random port
+- Serves test pages defined in test code
+- No need for separate server process
+
+**Navigation Helpers:**
+```typescript
+await bt.navigate('/about');    // Navigate to a path
+await bt.back();                 // Go back in history
+await bt.forward();              // Go forward in history
+await bt.reload();               // Reload current page
+```
+
+**Assertions:**
+```typescript
+bt.assertUrl('/expected-path');  // Assert current URL
+const url = bt.getCurrentUrl();  // Get current URL
+```
+
+**TestContext Access:**
+```typescript
+const ctx = bt.getContext();
+const widget = await ctx.findWidget({ text: 'Submit' });
+await ctx.clickWidget(widget.id);
+```
+
+### Complete Test Example
+
+```typescript
+import { browserTest, JyneBrowserTest } from 'jyne';
+
+// Test 1: Basic page navigation
+await browserTest(
+  'should load home page',
+  [
+    {
+      path: '/',
+      code: `
+        const { vbox, label } = jyne;
+        vbox(() => {
+          label('Welcome to Home Page');
+        });
+      `
+    }
+  ],
+  async (bt: JyneBrowserTest) => {
+    await bt.createBrowser('/');
+    const ctx = bt.getContext();
+
+    // Find and verify widget
+    const welcomeLabel = await ctx.findWidget({ text: 'Welcome to Home Page' });
+    if (!welcomeLabel) {
+      throw new Error('Welcome label not found');
+    }
+  }
+);
+
+// Test 2: Form submission and navigation
+await browserTest(
+  'should submit form and navigate',
+  [
+    {
+      path: '/',
+      code: `
+        const { vbox, entry, button } = jyne;
+        let nameEntry;
+        vbox(() => {
+          nameEntry = entry('Enter name');
+          button('Submit', () => {
+            browserContext.changePage('/thanks');
+          });
+        });
+      `
+    },
+    {
+      path: '/thanks',
+      code: `
+        const { vbox, label } = jyne;
+        vbox(() => {
+          label('Thank you!');
+        });
+      `
+    }
+  ],
+  async (bt: JyneBrowserTest) => {
+    await bt.createBrowser('/');
+    bt.assertUrl('/');
+
+    const ctx = bt.getContext();
+
+    // Fill form and submit
+    const submitButton = await ctx.findWidget({ text: 'Submit' });
+    await ctx.clickWidget(submitButton.id);
+
+    // Wait for navigation
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // Verify navigation
+    bt.assertUrl('/thanks');
+    const thanksLabel = await ctx.findWidget({ text: 'Thank you!' });
+    if (!thanksLabel) {
+      throw new Error('Thanks page not loaded');
+    }
+  }
+);
+
+// Test 3: Back/Forward navigation
+await browserTest(
+  'should navigate back and forward',
+  [
+    { path: '/', code: `const { vbox, label } = jyne; vbox(() => { label('Home'); });` },
+    { path: '/page2', code: `const { vbox, label } = jyne; vbox(() => { label('Page 2'); });` }
+  ],
+  async (bt: JyneBrowserTest) => {
+    await bt.createBrowser('/');
+
+    // Navigate to page 2
+    await bt.navigate('/page2');
+    bt.assertUrl('/page2');
+
+    // Go back
+    await bt.back();
+    await new Promise(resolve => setTimeout(resolve, 200));
+    bt.assertUrl('/');
+
+    // Go forward
+    await bt.forward();
+    await new Promise(resolve => setTimeout(resolve, 200));
+    bt.assertUrl('/page2');
+  }
+);
+```
+
+### Running Browser Tests
+
+```bash
+# Build the project
+npm run build
+
+# Run browser tests
+node examples/browser.test.js
+```
+
+### Helper Function API
+
+**`browserTest(name, pages, testFn, options?)`**
+
+Parameters:
+- **`name`**: Test name/description
+- **`pages`**: Array of test pages with `path` and `code` properties
+- **`testFn`**: Test function receiving `JyneBrowserTest` instance
+- **`options`**: Optional configuration (port, headed mode)
+
+Returns: `Promise<void>`
+
+### JyneBrowserTest Class API
+
+**Methods:**
+- **`addPages(pages)`**: Add test pages to be served
+- **`createBrowser(initialPath?, options?)`**: Start server and create browser
+- **`navigate(path)`**: Navigate to a path
+- **`back()`**: Navigate back in history
+- **`forward()`**: Navigate forward in history
+- **`reload()`**: Reload current page
+- **`assertUrl(expected)`**: Assert current URL matches expected
+- **`getCurrentUrl()`**: Get current URL
+- **`getContext()`**: Get TestContext for widget interaction
+- **`cleanup()`**: Stop server and quit browser
+
+**See [examples/browser.test.ts](examples/browser.test.ts) for comprehensive browser testing examples.**
+
 ## API Reference
 
 ### Application
