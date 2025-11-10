@@ -43,4 +43,13 @@ export class App {
   quit(): void {
     this.ctx.bridge.quit();
   }
+
+  async setTheme(theme: 'dark' | 'light'): Promise<void> {
+    await this.ctx.bridge.send('setTheme', { theme });
+  }
+
+  async getTheme(): Promise<'dark' | 'light'> {
+    const result = await this.ctx.bridge.send('getTheme', {});
+    return result.theme as 'dark' | 'light';
+  }
 }

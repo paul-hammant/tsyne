@@ -239,6 +239,233 @@ npm run test:calculator:headed
 
 **See [TESTING.md](TESTING.md) for complete documentation and the [calculator test app](test-apps/calculator/) for a comprehensive example.**
 
+## Browser Testing with JyneBrowserTest
+
+Jyne includes **JyneBrowserTest**, a testing framework specifically designed for testing Jyne Browser pages. It automatically starts a test HTTP server and provides navigation helpers for testing multi-page browser applications.
+
+### Quick Browser Test Example
+
+```typescript
+import { browserTest } from 'jyne';
+
+await browserTest(
+  'should navigate between pages',
+  [
+    {
+      path: '/',
+      code: `
+        const { vbox, label, button } = jyne;
+        vbox(() => {
+          label('Home Page');
+          button('Go to About', () => {
+            browserContext.changePage('/about');
+          });
+        });
+      `
+    },
+    {
+      path: '/about',
+      code: `
+        const { vbox, label } = jyne;
+        vbox(() => {
+          label('About Page');
+        });
+      `
+    }
+  ],
+  async (bt) => {
+    await bt.createBrowser('/');
+    const ctx = bt.getContext();
+
+    // Click navigation button
+    const aboutButton = await ctx.findWidget({ text: 'Go to About' });
+    await ctx.clickWidget(aboutButton.id);
+
+    // Verify navigation occurred
+    await new Promise(resolve => setTimeout(resolve, 200));
+    bt.assertUrl('/about');
+  }
+);
+```
+
+### JyneBrowserTest Features
+
+**Automatic Test Server:**
+- Starts HTTP server on random port
+- Serves test pages defined in test code
+- No need for separate server process
+
+**Navigation Helpers:**
+```typescript
+await bt.navigate('/about');    // Navigate to a path
+await bt.back();                 // Go back in history
+await bt.forward();              // Go forward in history
+await bt.reload();               // Reload current page
+```
+
+**Assertions:**
+```typescript
+bt.assertUrl('/expected-path');  // Assert current URL
+const url = bt.getCurrentUrl();  // Get current URL
+```
+
+**TestContext Access:**
+```typescript
+const ctx = bt.getContext();
+const widget = await ctx.findWidget({ text: 'Submit' });
+await ctx.clickWidget(widget.id);
+```
+
+### Complete Test Example
+
+```typescript
+import { browserTest, JyneBrowserTest } from 'jyne';
+
+// Test 1: Basic page navigation
+await browserTest(
+  'should load home page',
+  [
+    {
+      path: '/',
+      code: `
+        const { vbox, label } = jyne;
+        vbox(() => {
+          label('Welcome to Home Page');
+        });
+      `
+    }
+  ],
+  async (bt: JyneBrowserTest) => {
+    await bt.createBrowser('/');
+    const ctx = bt.getContext();
+
+    // Find and verify widget
+    const welcomeLabel = await ctx.findWidget({ text: 'Welcome to Home Page' });
+    if (!welcomeLabel) {
+      throw new Error('Welcome label not found');
+    }
+  }
+);
+
+// Test 2: Form submission and navigation
+await browserTest(
+  'should submit form and navigate',
+  [
+    {
+      path: '/',
+      code: `
+        const { vbox, entry, button } = jyne;
+        let nameEntry;
+        vbox(() => {
+          nameEntry = entry('Enter name');
+          button('Submit', () => {
+            browserContext.changePage('/thanks');
+          });
+        });
+      `
+    },
+    {
+      path: '/thanks',
+      code: `
+        const { vbox, label } = jyne;
+        vbox(() => {
+          label('Thank you!');
+        });
+      `
+    }
+  ],
+  async (bt: JyneBrowserTest) => {
+    await bt.createBrowser('/');
+    bt.assertUrl('/');
+
+    const ctx = bt.getContext();
+
+    // Fill form and submit
+    const submitButton = await ctx.findWidget({ text: 'Submit' });
+    await ctx.clickWidget(submitButton.id);
+
+    // Wait for navigation
+    await new Promise(resolve => setTimeout(resolve, 200));
+
+    // Verify navigation
+    bt.assertUrl('/thanks');
+    const thanksLabel = await ctx.findWidget({ text: 'Thank you!' });
+    if (!thanksLabel) {
+      throw new Error('Thanks page not loaded');
+    }
+  }
+);
+
+// Test 3: Back/Forward navigation
+await browserTest(
+  'should navigate back and forward',
+  [
+    { path: '/', code: `const { vbox, label } = jyne; vbox(() => { label('Home'); });` },
+    { path: '/page2', code: `const { vbox, label } = jyne; vbox(() => { label('Page 2'); });` }
+  ],
+  async (bt: JyneBrowserTest) => {
+    await bt.createBrowser('/');
+
+    // Navigate to page 2
+    await bt.navigate('/page2');
+    bt.assertUrl('/page2');
+
+    // Go back
+    await bt.back();
+    await new Promise(resolve => setTimeout(resolve, 200));
+    bt.assertUrl('/');
+
+    // Go forward
+    await bt.forward();
+    await new Promise(resolve => setTimeout(resolve, 200));
+    bt.assertUrl('/page2');
+  }
+);
+```
+
+### Running Browser Tests
+
+```bash
+# Build the project
+npm run build
+
+# Run browser tests
+node examples/browser.test.js
+```
+
+### Helper Function API
+
+**`browserTest(name, pages, testFn, options?)`**
+
+Parameters:
+- **`name`**: Test name/description
+- **`pages`**: Array of test pages with `path` and `code` properties
+- **`testFn`**: Test function receiving `JyneBrowserTest` instance
+- **`options`**: Optional configuration (port, headed mode)
+
+Returns: `Promise<void>`
+
+### JyneBrowserTest Class API
+
+**Methods:**
+- **`addPages(pages)`**: Add test pages to be served
+- **`createBrowser(initialPath?, options?)`**: Start server and create browser
+- **`navigate(path)`**: Navigate to a path
+- **`back()`**: Navigate back in history
+- **`forward()`**: Navigate forward in history
+- **`reload()`**: Reload current page
+- **`assertUrl(expected)`**: Assert current URL matches expected
+- **`getCurrentUrl()`**: Get current URL
+- **`getContext()`**: Get TestContext for widget interaction
+- **`cleanup()`**: Stop server and quit browser
+
+**See [BROWSER_TESTING.md](BROWSER_TESTING.md) for complete documentation on JyneBrowserTest, including:**
+- Playwright-inspired locators, actions, and expectations
+- Integration with Jest, Mocha, Vitest, and other test runners
+- Assertion library flexibility (Jest, Chai, assert, etc.)
+- Complete API reference and best practices
+- **[examples/browser.test.ts](examples/browser.test.ts)** for comprehensive examples
+
 ## API Reference
 
 ### Application
@@ -251,14 +478,75 @@ npm run test:calculator:headed
 
 - **`window(options, builder)`**: Create a window
   - `options.title`: Window title
+  - `options.width`: Window width in pixels (optional)
+  - `options.height`: Window height in pixels (optional)
+  - `options.fixedSize`: Prevent window resizing (optional, default false)
   - `builder`: Function that defines the window content
+
+Window methods:
+- **`window.resize(width, height)`**: Resize the window
+- **`window.centerOnScreen()`**: Center the window on screen
+- **`window.setFullScreen(fullscreen)`**: Enter or exit fullscreen mode
+- **`window.setMainMenu(menuDefinition)`**: Set the main menu bar (see Menu Bar section)
 
 ### Layouts
 
 - **`vbox(builder)`**: Vertical box layout
 - **`hbox(builder)`**: Horizontal box layout
+- **`grid(columns, builder)`**: Grid layout with specified number of columns
+  - `columns`: Number of columns in the grid
+  - `builder`: Function that defines grid children
+- **`scroll(builder)`**: Scrollable container for long content
+  - `builder`: Function that defines scrollable content (must have exactly one child)
+- **`hsplit(leadingBuilder, trailingBuilder, offset?)`**: Horizontal split container with resizable divider
+  - `leadingBuilder`: Function that defines left panel content (must have exactly one child)
+  - `trailingBuilder`: Function that defines right panel content (must have exactly one child)
+  - `offset`: Initial divider position from 0.0 to 1.0 (optional, default 0.5)
+- **`vsplit(leadingBuilder, trailingBuilder, offset?)`**: Vertical split container with resizable divider
+  - `leadingBuilder`: Function that defines top panel content (must have exactly one child)
+  - `trailingBuilder`: Function that defines bottom panel content (must have exactly one child)
+  - `offset`: Initial divider position from 0.0 to 1.0 (optional, default 0.5)
+- **`tabs(tabDefinitions, location?)`**: Tabbed container for organizing content
+  - `tabDefinitions`: Array of {title: string, builder: () => void} objects
+  - `location`: Tab bar position - 'top', 'bottom', 'leading', or 'trailing' (optional, default 'top')
+- **`center(builder)`**: Center layout - centers content horizontally and vertically
+  - `builder`: Function that defines centered content (must have exactly one child)
+  - Perfect for dialogs, splash screens, and focused content
+- **`border(config)`**: Border layout - positions widgets at edges and center
+  - `config`: Object with optional `top`, `bottom`, `left`, `right`, `center` builder functions
+  - Each builder function creates exactly one widget for that position
+  - Example: `border({ top: () => label('Header'), center: () => vbox(() => { ... }) })`
+- **`gridwrap(itemWidth, itemHeight, builder)`**: Grid wrap layout with fixed item sizes
+  - `itemWidth`: Fixed width for each item
+  - `itemHeight`: Fixed height for each item
+  - `builder`: Function that defines grid items
+  - Items automatically wrap to next row when horizontal space is exhausted
+  - Perfect for image galleries, button grids, icon collections
+
+### Container Widgets
+
+- **`card(title, subtitle, builder)`**: Card container with title, subtitle, and content
+  - `title`: Card title text
+  - `subtitle`: Card subtitle text
+  - `builder`: Function that defines card content (must have exactly one child)
+  - Example: `card('Profile', 'User information', () => { vbox(() => { ... }) })`
+
+- **`accordion(items)`**: Accordion widget with collapsible sections
+  - `items`: Array of {title: string, builder: () => void} objects
+  - Each section can be expanded/collapsed independently
+  - Saves vertical space by hiding content until needed
+  - Example: `accordion([{ title: 'Section 1', builder: () => { vbox(() => { ... }) } }])`
+
+- **`form(items, onSubmit?, onCancel?)`**: Form widget with labeled fields and buttons
+  - `items`: Array of {label: string, widget: any} objects defining form fields
+  - `onSubmit`: Optional callback when Submit button is clicked
+  - `onCancel`: Optional callback when Cancel button is clicked
+  - Automatically creates Submit and Cancel buttons if callbacks provided
+  - Example: `form([{ label: 'Name', widget: nameEntry }, { label: 'Email', widget: emailEntry }], () => { ... })`
 
 ### Widgets
+
+#### Basic Widgets
 
 - **`button(text, onClick?)`**: Create a button
   - `text`: Button label
@@ -270,12 +558,1275 @@ npm run test:calculator:headed
 - **`entry(placeholder?)`**: Create a text input
   - `placeholder`: Placeholder text (optional)
 
+- **`multilineentry(placeholder?, wrapping?)`**: Create a multi-line text input
+  - `placeholder`: Placeholder text (optional)
+  - `wrapping`: Text wrapping mode - 'off', 'word', or 'break' (optional, defaults to 'word')
+  - Perfect for notes, comments, and longer text input
+  - Methods: `setText(text: string)`, `getText(): Promise<string>`
+
+- **`passwordentry(placeholder?)`**: Create a password input (masked text)
+  - `placeholder`: Placeholder text (optional)
+  - Characters are masked for security
+  - Methods: `setText(text: string)`, `getText(): Promise<string>`
+
+#### Input Widgets
+
+- **`checkbox(text, onChanged?)`**: Create a checkbox
+  - `text`: Checkbox label
+  - `onChanged`: Callback when checked state changes (optional)
+  - Methods: `setChecked(checked: boolean)`, `getChecked(): Promise<boolean>`
+
+- **`select(options, onSelected?)`**: Create a dropdown select
+  - `options`: Array of string options
+  - `onSelected`: Callback when selection changes (optional)
+  - Methods: `setSelected(value: string)`, `getSelected(): Promise<string>`
+
+- **`slider(min, max, initialValue?, onChanged?)`**: Create a slider
+  - `min`: Minimum value
+  - `max`: Maximum value
+  - `initialValue`: Starting value (optional)
+  - `onChanged`: Callback when value changes (optional)
+  - Methods: `setValue(value: number)`, `getValue(): Promise<number>`
+
+- **`radiogroup(options, initialSelected?, onSelected?)`**: Create a radio button group
+  - `options`: Array of string options
+  - `initialSelected`: Initially selected option (optional)
+  - `onSelected`: Callback when selection changes (optional)
+  - Methods: `setSelected(value: string)`, `getSelected(): Promise<string>`
+
+#### Display Widgets
+
+- **`progressbar(initialValue?, infinite?)`**: Create a progress bar
+  - `initialValue`: Starting progress value 0.0 to 1.0 (optional)
+  - `infinite`: Set to true for indeterminate progress (optional)
+  - Methods: `setProgress(value: number)`, `getProgress(): Promise<number>`
+
+- **`separator()`**: Create a visual separator line
+  - Creates a horizontal line to visually separate sections
+  - Improves UI organization and readability
+
+- **`hyperlink(text, url)`**: Create a clickable hyperlink
+  - `text`: Link text to display
+  - `url`: URL to open when clicked
+  - Opens URL in the default browser
+  - Example: `hyperlink('Visit GitHub', 'https://github.com')`
+
+#### UI Components
+
+- **`toolbar(items)`**: Create a toolbar with actions
+  - `items`: Array of toolbar items with type ('action' | 'separator' | 'spacer'), label, and onAction callback
+  - Example: `toolbar([{type: 'action', label: 'Save', onAction: () => save()}, {type: 'separator'}, {type: 'spacer'}])`
+
+#### Data Display Widgets
+
+- **`table(headers, data)`**: Create a table with headers and data rows
+  - `headers`: Array of column header strings
+  - `data`: 2D array of string data (rows x columns)
+  - Methods: `updateData(data: string[][])` - Update table contents
+  - Example: `table(['Name', 'Age', 'City'], [['John', '30', 'NYC'], ['Jane', '25', 'LA']])`
+
+- **`list(items, onSelected?)`**: Create a scrollable list
+  - `items`: Array of string items to display
+  - `onSelected`: Callback when an item is selected (optional) - receives (index: number, item: string)
+  - Methods: `updateItems(items: string[])` - Update list contents
+  - Example: `list(['Item 1', 'Item 2', 'Item 3'], (index, item) => console.log(item))`
+
+#### Specialized Widgets
+
+- **`tree(rootLabel)`**: Tree widget for hierarchical data
+  - `rootLabel`: Label for the root node
+  - Displays hierarchical structure with collapsible branches
+  - Perfect for file browsers, organizational charts, nested data
+  - Example: `tree('Root Node')`
+
+- **`richtext(segments)`**: Rich text widget with formatted text
+  - `segments`: Array of text segments with formatting options
+  - Each segment can have `bold`, `italic`, `monospace` properties
+  - Example: `richtext([{ text: 'Bold text', bold: true }, { text: ' normal ', bold: false }, { text: 'italic', italic: true }])`
+  - Great for formatted documents, help text, mixed formatting
+
+- **`image(path, fillMode?)`**: Image widget for displaying images
+  - `path`: File path to the image
+  - `fillMode`: How to fit the image - 'contain', 'stretch', or 'original' (optional, default 'contain')
+  - Supports common image formats (PNG, JPG, GIF, etc.)
+  - Example: `image('/path/to/image.png', 'contain')`
+
+### Dialogs
+
+Jyne provides common dialog methods on the Window class for user interactions:
+
+#### Information and Error Dialogs
+
+- **`window.showInfo(title, message)`**: Show an information dialog
+  - `title`: Dialog title
+  - `message`: Information message to display
+  - Returns: `Promise<void>`
+
+- **`window.showError(title, message)`**: Show an error dialog
+  - `title`: Dialog title
+  - `message`: Error message to display
+  - Returns: `Promise<void>`
+
+#### Confirmation Dialog
+
+- **`window.showConfirm(title, message)`**: Show a confirmation dialog
+  - `title`: Dialog title
+  - `message`: Confirmation message
+  - Returns: `Promise<boolean>` - true if confirmed, false if cancelled
+
+#### File Dialogs
+
+- **`window.showFileOpen()`**: Show a file open dialog
+  - Returns: `Promise<string | null>` - selected file path or null if cancelled
+
+- **`window.showFileSave(filename?)`**: Show a file save dialog
+  - `filename`: Default filename (optional, defaults to 'untitled.txt')
+  - Returns: `Promise<string | null>` - selected file path or null if cancelled
+
+#### Dialog Examples
+
+```typescript
+// Information dialog
+await win.showInfo('Success', 'File saved successfully!');
+
+// Error dialog
+await win.showError('Error', 'Failed to connect to server');
+
+// Confirmation dialog
+const confirmed = await win.showConfirm(
+  'Delete File',
+  'Are you sure you want to delete this file?'
+);
+if (confirmed) {
+  // Delete the file
+}
+
+// File open dialog
+const filePath = await win.showFileOpen();
+if (filePath) {
+  console.log('Selected file:', filePath);
+}
+
+// File save dialog
+const savePath = await win.showFileSave('document.txt');
+if (savePath) {
+  console.log('Save to:', savePath);
+}
+```
+
+### Menu Bar
+
+Create application menus using `window.setMainMenu()`:
+
+```typescript
+await win.setMainMenu([
+  {
+    label: 'File',
+    items: [
+      {
+        label: 'New',
+        onSelected: () => { /* handle new */ }
+      },
+      {
+        label: 'Open...',
+        onSelected: async () => {
+          const filePath = await win.showFileOpen();
+          // handle open
+        }
+      },
+      {
+        isSeparator: true  // Menu separator
+      },
+      {
+        label: 'Exit',
+        onSelected: () => { /* handle exit */ }
+      }
+    ]
+  },
+  {
+    label: 'Edit',
+    items: [
+      {
+        label: 'Cut',
+        onSelected: () => { /* handle cut */ }
+      },
+      {
+        label: 'Copy',
+        onSelected: () => { /* handle copy */ }
+      },
+      {
+        label: 'Paste',
+        onSelected: () => { /* handle paste */ },
+        disabled: true  // Optional: disable menu item
+      }
+    ]
+  },
+  {
+    label: 'View',
+    items: [
+      {
+        label: 'Fullscreen',
+        checked: false,  // Optional: checkmark indicator
+        onSelected: async () => {
+          await win.setFullScreen(true);
+        }
+      }
+    ]
+  }
+]);
+```
+
+Menu item properties:
+- **`label`**: Menu item text
+- **`onSelected`**: Callback when item is clicked
+- **`isSeparator`**: Set to true for separator line (optional)
+- **`disabled`**: Disable the menu item (optional)
+- **`checked`**: Show checkmark (optional)
+
 ### Widget Methods
 
-All widgets support these methods:
+Common methods supported by most widgets:
 
-- **`setText(text: string)`**: Update widget text
-- **`getText(): Promise<string>`**: Get widget text
+- **`setText(text: string)`**: Update widget text (Button, Label, Entry)
+- **`getText(): Promise<string>`**: Get widget text (Button, Label, Entry)
+
+Widget-specific methods:
+
+- **Checkbox**: `setChecked(checked: boolean)`, `getChecked(): Promise<boolean>`
+- **Select**: `setSelected(value: string)`, `getSelected(): Promise<string>`
+- **Slider**: `setValue(value: number)`, `getValue(): Promise<number>`
+- **RadioGroup**: `setSelected(value: string)`, `getSelected(): Promise<string>`
+- **ProgressBar**: `setProgress(value: number)`, `getProgress(): Promise<number>`
+
+## Theme Support
+
+Jyne supports light and dark themes that automatically apply to all widgets in your application.
+
+### Setting the Theme
+
+```typescript
+import { app, setTheme } from 'jyne';
+
+app({ title: 'My App' }, () => {
+  // Switch to dark theme
+  await setTheme('dark');
+
+  // Switch to light theme
+  await setTheme('light');
+
+  // Get current theme
+  const currentTheme = await getTheme(); // Returns 'dark' or 'light'
+});
+```
+
+### Using Theme with App Instance
+
+```typescript
+const myApp = app({ title: 'My App' }, () => {
+  // ... build your UI
+});
+
+// Set theme on app instance
+await myApp.setTheme('dark');
+
+// Get current theme
+const theme = await myApp.getTheme();
+```
+
+### Theme Features
+
+- **Automatic widget styling**: All widgets automatically adapt to the selected theme
+- **Light theme**: Bright background with dark text, suitable for well-lit environments
+- **Dark theme**: Dark background with light text, suitable for low-light environments
+- **Runtime switching**: Change themes dynamically without restarting the application
+- **Persistent across windows**: Theme applies to all windows in the application
+
+### Example: Theme Switcher
+
+```typescript
+import { app, window, vbox, button, label } from 'jyne';
+
+let themeLabel: any;
+
+app({ title: 'Theme Demo' }, () => {
+  window({ title: 'Theme Switcher' }, (win) => {
+    win.setContent(() => {
+      vbox(() => {
+        themeLabel = label('Current Theme: Light');
+
+        button('Dark Theme', async () => {
+          const myApp = (win as any).ctx.bridge;
+          await myApp.send('setTheme', { theme: 'dark' });
+          themeLabel.setText('Current Theme: Dark');
+        });
+
+        button('Light Theme', async () => {
+          const myApp = (win as any).ctx.bridge;
+          await myApp.send('setTheme', { theme: 'light' });
+          themeLabel.setText('Current Theme: Light');
+        });
+      });
+    });
+
+    win.show();
+  });
+});
+```
+
+See `examples/theme.ts` for a complete theme demonstration with various widgets.
+
+## Widget Styling System
+
+Jyne includes a CSS-like styling system inspired by [Swiby](https://github.com/jeanlazarou/swiby), allowing you to separate presentation from structure. Define styles once in a stylesheet module, and they automatically apply to widgets based on their type.
+
+### Quick Start with Styling
+
+The styling system works similarly to CSS - define styles for widget types, and they're automatically applied when widgets are created.
+
+**Without styles** (`examples/form-unstyled.ts`):
+```typescript
+import { app, window, vbox, label, button } from 'jyne';
+
+app({ title: 'My App' }, () => {
+  window({ title: 'Form' }, (win) => {
+    win.setContent(() => {
+      vbox(() => {
+        label('Registration Form');
+        button('Submit', () => {});
+      });
+    });
+    win.show();
+  });
+});
+```
+
+**With styles** (`examples/form-styled.ts`):
+```typescript
+import { app, window, vbox, label, button } from 'jyne';
+import './form-styles';  // ← Only difference: import stylesheet!
+
+app({ title: 'My App' }, () => {
+  window({ title: 'Form' }, (win) => {
+    win.setContent(() => {
+      vbox(() => {
+        label('Registration Form');  // Automatically styled!
+        button('Submit', () => {});  // Automatically styled!
+      });
+    });
+    win.show();
+  });
+});
+```
+
+**Stylesheet** (`examples/form-styles.ts`):
+```typescript
+import { styles, FontFamily, FontStyle } from 'jyne';
+
+styles({
+  root: {
+    font_family: FontFamily.SANS_SERIF,
+    font_size: 10
+  },
+  label: {
+    font_style: FontStyle.ITALIC,
+    font_size: 12
+  },
+  button: {
+    font_weight: 'bold'
+  },
+  entry: {
+    font_family: FontFamily.MONOSPACE
+  }
+});
+```
+
+### Style Properties
+
+The styling system supports the following properties:
+
+#### Font Properties
+- **`font_family`**: Font family - `FontFamily.SANS_SERIF`, `FontFamily.SERIF`, or `FontFamily.MONOSPACE`
+- **`font_style`**: Font style - `FontStyle.NORMAL`, `FontStyle.ITALIC`, `FontStyle.BOLD`, or `FontStyle.BOLD_ITALIC`
+- **`font_weight`**: Font weight - `'normal'` or `'bold'`
+- **`font_size`**: Font size in points (number)
+
+#### Color Properties (limited support)
+- **`color`**: Text color - hex number (`0xRRGGBB`) or CSS color string
+- **`background_color`**: Background color - hex number or CSS color string
+
+**Note**: Fyne has limitations on per-widget color customization. Font styling works reliably across widgets, but colors require custom themes or custom widget renderers. The styling system accepts color properties for future compatibility.
+
+### Widget Selectors
+
+Styles can be defined for these widget types:
+
+- **`root`**: Base styles applied to all widgets (unless overridden)
+- **`button`**: Button widgets
+- **`label`**: Label widgets
+- **`entry`**: Single-line text input widgets
+- **`multilineentry`**: Multi-line text area widgets
+- **`passwordentry`**: Password input widgets
+- **`checkbox`**: Checkbox widgets
+- **`select`**: Dropdown select widgets
+- **`slider`**: Slider widgets
+- **`radiogroup`**: Radio button groups
+- **`progressbar`**: Progress bar widgets
+- **`hyperlink`**: Hyperlink widgets
+- **`table`**: Table widgets
+- **`list`**: List widgets
+
+### Complete Styling Example
+
+Swiby-style approach with separate stylesheet:
+
+**styles.ts** (stylesheet module):
+```typescript
+import { styles, FontFamily, FontStyle } from 'jyne';
+
+styles({
+  root: {
+    font_family: FontFamily.SANS_SERIF,
+    font_style: FontStyle.NORMAL,
+    font_size: 10
+  },
+  label: {
+    font_style: FontStyle.ITALIC,
+    font_size: 12,
+    color: 0xAA0000  // Red text
+  },
+  entry: {
+    font_family: FontFamily.MONOSPACE,
+    font_size: 12,
+    background_color: 0xFFFFC6  // Light yellow background
+  },
+  button: {
+    font_weight: 'bold'
+  }
+});
+```
+
+**main.ts** (application):
+```typescript
+import { app, window, vbox, label, entry, button } from 'jyne';
+import './styles';  // Import stylesheet - styles auto-apply!
+
+app({ title: 'Styled App' }, () => {
+  window({ title: 'My Form' }, (win) => {
+    win.setContent(() => {
+      vbox(() => {
+        label('Enter your details:');
+        entry('Name');
+        entry('Email');
+        button('Submit', () => {});
+      });
+    });
+    win.show();
+  });
+});
+```
+
+### Style Inheritance
+
+Styles follow a cascading pattern:
+1. **Root styles** apply to all widgets
+2. **Widget-specific styles** override root styles
+3. Later style definitions override earlier ones
+
+```typescript
+styles({
+  root: {
+    font_size: 10,        // All widgets: 10pt
+    font_style: FontStyle.NORMAL
+  },
+  label: {
+    font_size: 12,        // Labels: 12pt (overrides root)
+    font_style: FontStyle.ITALIC  // Labels: italic (overrides root)
+  }
+});
+```
+
+### API Reference
+
+**`styles(definitions)`**
+Define styles for widget types.
+
+```typescript
+import { styles, FontStyle } from 'jyne';
+
+styles({
+  label: { font_style: FontStyle.BOLD },
+  button: { font_weight: 'bold' }
+});
+```
+
+**`clearStyles()`**
+Clear all defined styles.
+
+```typescript
+import { clearStyles } from 'jyne';
+
+clearStyles();
+```
+
+**`getStyleSheet()`**
+Get the global stylesheet instance.
+
+```typescript
+import { getStyleSheet } from 'jyne';
+
+const sheet = getStyleSheet();
+const labelStyle = sheet?.getComputedStyle('label');
+```
+
+### Comparison with Swiby
+
+Jyne's styling system is inspired by Swiby's elegant stylesheet approach:
+
+**Swiby (Ruby/Swing)**:
+```ruby
+styles {
+  root(
+    :font_family => Styles::VERDANA,
+    :font_size => 10
+  )
+  label(
+    :font_style => :italic,
+    :color => 0xAA0000
+  )
+}
+```
+
+**Jyne (TypeScript/Fyne)**:
+```typescript
+styles({
+  root: {
+    font_family: FontFamily.SANS_SERIF,
+    font_size: 10
+  },
+  label: {
+    font_style: FontStyle.ITALIC,
+    color: 0xAA0000
+  }
+});
+```
+
+### Limitations
+
+Due to Fyne's architecture:
+- **Color customization** is limited for standard widgets (requires custom themes or renderers)
+- **Font styles** (bold, italic, monospace) work well across widgets
+- **Font families** are limited to sans-serif, serif, and monospace
+- **Widget-specific styling** may have platform-specific variations
+
+For advanced color customization, consider using Fyne's theme system (see Theme Support section above).
+
+### Examples
+
+See these examples demonstrating the styling system:
+- **`examples/form-unstyled.ts`** - Form without any styling
+- **`examples/form-styled.ts`** - Same form with stylesheet applied
+- **`examples/form-styles.ts`** - Stylesheet module defining visual styles
+
+Run the examples to see the difference:
+```bash
+npm run build
+node examples/form-unstyled.js   # Without styles
+node examples/form-styled.js     # With styles
+```
+
+## Context Menus
+
+All Jyne widgets support right-click context menus, enabling contextual actions based on what the user clicks.
+
+### Usage
+
+Use `widget.setContextMenu()` to add a context menu to any widget:
+
+```typescript
+const todoLabel = label('Buy potatoes');
+
+todoLabel.setContextMenu([
+  {
+    label: 'Mark Complete',
+    onSelected: () => {
+      console.log('Marked complete!');
+    }
+  },
+  {
+    label: 'Edit',
+    onSelected: () => {
+      console.log('Edit item');
+    }
+  },
+  { isSeparator: true },
+  {
+    label: 'Delete',
+    onSelected: () => {
+      console.log('Delete item');
+    }
+  }
+]);
+```
+
+### Menu Item Options
+
+```typescript
+interface ContextMenuItem {
+  label: string;           // Menu item text
+  onSelected: () => void;  // Callback when selected
+  disabled?: boolean;      // Gray out and disable item
+  checked?: boolean;       // Show checkmark
+  isSeparator?: boolean;   // Render as separator line
+}
+```
+
+### Examples
+
+**Todo List with Context Menus:**
+```typescript
+const items = ['Buy milk', 'Buy potatoes', 'Call dentist'];
+
+items.forEach(item => {
+  const itemLabel = label(`☐ ${item}`);
+
+  itemLabel.setContextMenu([
+    {
+      label: 'Mark Complete',
+      onSelected: () => markComplete(item)
+    },
+    {
+      label: 'Edit',
+      onSelected: () => editItem(item)
+    },
+    { isSeparator: true },
+    {
+      label: 'Delete',
+      onSelected: () => deleteItem(item)
+    }
+  ]);
+});
+```
+
+**Document Editor with Context Menu:**
+```typescript
+const textEntry = entry('Document text...');
+
+textEntry.setContextMenu([
+  {
+    label: 'Cut',
+    onSelected: () => clipboard.cut()
+  },
+  {
+    label: 'Copy',
+    onSelected: () => clipboard.copy()
+  },
+  {
+    label: 'Paste',
+    onSelected: () => clipboard.paste()
+  },
+  { isSeparator: true },
+  {
+    label: 'Select All',
+    onSelected: () => selectAll()
+  }
+]);
+```
+
+**Dynamic Menu Items:**
+```typescript
+const label = label('Status: Active');
+
+label.setContextMenu([
+  {
+    label: 'Enable Feature',
+    checked: featureEnabled,
+    onSelected: () => toggleFeature()
+  },
+  {
+    label: 'Admin Only',
+    disabled: !isAdmin,
+    onSelected: () => adminAction()
+  }
+]);
+```
+
+### Demo
+
+See **`examples/pages/context-menu-demo.ts`** for a complete todo list example with context menus.
+
+```bash
+npm run build
+node examples/server.js
+node examples/jynebrowser.js http://localhost:3000/
+# Navigate to Context Menu Demo page and right-click on todo items
+```
+
+## Browser System
+
+Jyne includes a Swiby-inspired browser system that loads **Jyne TypeScript pages** from web servers dynamically, similar to how Mosaic, Firefox, or Chrome load HTML pages. This enables server-side page generation from any language or framework (Spring, Sinatra, Flask, Express, etc.).
+
+**Important:** Jyne's page grammar is **TypeScript** (not JavaScript or HTML). Pages are TypeScript code that use the Jyne API.
+
+### Why a Browser?
+
+Unlike HTML+JavaScript which mixes declarative markup with imperative scripts, Jyne pages are seamless declarative TypeScript. The browser:
+
+- **Loads pages from HTTP/HTTPS servers** - Standard GET requests with 200, 302, 404 support
+- **Provides navigation functions** - `back()`, `forward()`, `changePage(url)`
+- **Server-agnostic** - Any language can serve Jyne pages (Node.js, Java, Ruby, Python, Go)
+- **Fully declarative** - Pages are pure TypeScript using the Jyne API
+
+### Quick Start
+
+**Run the browser:**
+```bash
+# With a URL parameter
+node examples/jynebrowser.js http://localhost:3000/
+
+# Or any other URL serving Jyne TypeScript pages
+node examples/jynebrowser.js https://example.com/jyne/index
+```
+
+**Create a browser in code:**
+```typescript
+import { createBrowser } from 'jyne';
+
+async function main() {
+  const browser = await createBrowser('http://localhost:3000/', {
+    title: 'Jyne Browser',
+    width: 900,
+    height: 700
+  });
+
+  await browser.run();
+}
+
+main();
+```
+
+**Create a server (Node.js filesystem-based example):**
+```javascript
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+
+const PAGES_DIR = path.join(__dirname, 'pages');
+
+// Map URL to filesystem path (/ → pages/index.ts, /about → pages/about.ts)
+function urlToFilePath(url) {
+  const cleanUrl = url.split('?')[0].split('#')[0].replace(/^\//, '');
+  const filePath = cleanUrl === '' ? 'index.ts' : cleanUrl + '.ts';
+  return path.join(PAGES_DIR, filePath);
+}
+
+http.createServer((req, res) => {
+  const filePath = urlToFilePath(req.url);
+
+  fs.readFile(filePath, 'utf8', (err, data) => {
+    if (err) {
+      res.writeHead(404, { 'Content-Type': 'text/typescript' });
+      res.end(fs.readFileSync(path.join(PAGES_DIR, '404.ts'), 'utf8'));
+    } else {
+      res.writeHead(200, { 'Content-Type': 'text/typescript' });
+      res.end(data);
+    }
+  });
+}).listen(3000);
+```
+
+**Example page** (`pages/index.ts`):
+```typescript
+// Home Page - TypeScript content for Jyne Browser
+const { vbox, label, button } = jyne;
+
+vbox(() => {
+  label('Welcome to Jyne Browser!');
+  label('');
+  label('Current URL: ' + browserContext.currentUrl);
+  label('');
+
+  button('Go to About', () => {
+    browserContext.changePage('/about');
+  });
+});
+```
+
+**Another page** (`pages/about.ts`):
+```typescript
+// About Page
+const { vbox, label, button, separator } = jyne;
+
+vbox(() => {
+  label('About Jyne Browser');
+  separator();
+  label('');
+  label('Pages are TypeScript code served from the server.');
+  label('');
+
+  button('Back', () => {
+    browserContext.back();
+  });
+});
+```
+
+### Browser API
+
+#### Browser Class
+
+**Constructor:**
+```typescript
+new Browser(options?: {
+  title?: string;
+  width?: number;
+  height?: number;
+})
+```
+
+**Methods:**
+- **`changePage(url: string): Promise<void>`** - Navigate to a URL and load the page
+- **`back(): Promise<void>`** - Navigate back in history
+- **`forward(): Promise<void>`** - Navigate forward in history
+- **`reload(): Promise<void>`** - Reload current page
+- **`stop(): void`** - Stop loading current page
+- **`run(): Promise<void>`** - Start the browser application
+- **`getApp(): App`** - Get the underlying App instance
+
+**Browser Chrome:**
+The browser window includes:
+- **Address bar** - Entry widget showing current URL (editable)
+- **← Back button** - Navigate to previous page in history
+- **→ Forward button** - Navigate to next page in history
+- **⟳ Reload button** - Refresh current page
+- **✕ Stop button** - Cancel loading (visible only when loading)
+- **Go button** - Navigate to URL in address bar
+- **Loading indicator** - "Loading..." text (visible when loading)
+
+**Menu Bar:**
+Standard browser menus are provided:
+- **File** - Close Window
+- **View** - Reload, Stop, View Page Source
+- **History** - Back, Forward (disabled when not available)
+- **Help** - About Jyne Browser
+- **[Page Menus]** - Custom menus added by pages
+
+**Factory Function:**
+```typescript
+createBrowser(
+  initialUrl?: string,
+  options?: {
+    title?: string;
+    width?: number;
+    height?: number;
+  }
+): Promise<Browser>
+```
+
+#### BrowserContext
+
+Every loaded page receives a `browserContext` object with navigation functions:
+
+```typescript
+interface BrowserContext {
+  back: () => Promise<void>;
+  forward: () => Promise<void>;
+  changePage: (url: string) => Promise<void>;
+  reload: () => Promise<void>;
+  stop: () => void;
+  addPageMenu: (menuLabel: string, items: PageMenuItem[]) => void;
+  currentUrl: string;
+  isLoading: boolean;
+  browser: Browser;
+}
+```
+
+**Navigation functions:**
+- `back()` - Navigate to previous page
+- `forward()` - Navigate to next page
+- `changePage(url)` - Navigate to a new URL
+- `reload()` - Refresh current page
+- `stop()` - Stop loading
+
+**Page Menu API:**
+Pages can add custom menus to the browser menu bar:
+
+```typescript
+browserContext.addPageMenu('Tools', [
+  {
+    label: 'Say Hello',
+    onSelected: () => { console.log('Hello!'); }
+  },
+  {
+    label: 'Disabled Item',
+    onSelected: () => {},
+    disabled: true
+  },
+  {
+    label: 'Checked Item',
+    checked: true,
+    onSelected: () => {}
+  }
+]);
+```
+
+Custom menus appear in the menu bar and are removed when navigating away from the page.
+
+Pages also receive a `jyne` object with all Jyne API functions.
+
+### Page Format
+
+**Jyne pages are TypeScript code** (not HTML or JavaScript) that execute in the browser context. They receive two parameters:
+
+1. **`browserContext`** - Navigation and browser functions
+2. **`jyne`** - All Jyne API functions (window, vbox, label, button, etc.)
+
+**Example page** (`pages/contact.ts`):
+```typescript
+// Contact Page - TypeScript content for Jyne Browser
+const { vbox, hbox, label, button, entry } = jyne;
+
+let nameEntry;
+let emailEntry;
+
+vbox(() => {
+  label('Contact Us');
+  label('');
+
+  label('Name:');
+  nameEntry = entry('Your name');
+  label('');
+
+  label('Email:');
+  emailEntry = entry('your@email.com');
+  label('');
+
+  hbox(() => {
+    button('Submit', async () => {
+      const name = await nameEntry.getText();
+      const email = await emailEntry.getText();
+      console.log('Submitted:', name, email);
+
+      // Navigate to thank you page
+      browserContext.changePage('/thanks');
+    });
+
+    button('Cancel', () => {
+      browserContext.back();
+    });
+  });
+});
+```
+
+### HTTP Support
+
+The browser supports standard HTTP features:
+
+- **GET requests** - Only GET is used (pages are code, not data)
+- **Status codes:**
+  - `200` - Success, page is rendered
+  - `301/302` - Redirects are followed automatically
+  - `404` - Can serve custom 404 error pages
+- **Content-Type** - Pages should be served as `text/typescript` or `text/plain`
+- **Timeouts** - 10 second timeout for requests
+
+### Page File Structure
+
+Pages are stored as `.ts` files with URL mapping:
+
+```
+pages/
+├── index.ts          # / → Home page
+├── about.ts          # /about → About page
+├── contact.ts        # /contact → Contact form
+├── form.ts           # /form → Form demo
+├── thanks.ts         # /thanks → Thank you page
+└── 404.ts            # (not found) → Error page
+```
+
+For nested URLs, use directories:
+```
+pages/
+├── products/
+│   ├── index.ts      # /products → Products listing
+│   └── detail.ts     # /products/detail → Product detail
+└── admin/
+    ├── index.ts      # /admin → Admin dashboard
+    └── users.ts      # /admin/users → User management
+```
+
+### Server Implementation
+
+Servers can be implemented in any language. The only requirement is to serve TypeScript code that uses the Jyne API from `.ts` files.
+
+**Node.js/Express:**
+```javascript
+app.get('/page', (req, res) => {
+  res.type('text/typescript');
+  res.send('const { vbox, label } = jyne; ...');
+});
+```
+
+**Python/Flask:**
+```python
+@app.route('/page')
+def page():
+    return '''
+        const { vbox, label } = jyne;
+        // ... page code
+    ''', 200, {'Content-Type': 'text/typescript'}
+```
+
+**Ruby/Sinatra:**
+```ruby
+get '/page' do
+  content_type 'text/typescript'
+  <<~JYNE
+    const { vbox, label } = jyne;
+    // ... page code
+  JYNE
+end
+```
+
+**Java/Spring:**
+```java
+@GetMapping("/page")
+public ResponseEntity<String> page() {
+    return ResponseEntity.ok()
+        .contentType(MediaType.valueOf("text/typescript"))
+        .body("const { vbox, label } = jyne; ...");
+}
+```
+
+### Navigation Flow
+
+1. **Browser loads initial URL** via `createBrowser(url)`
+2. **Server returns TypeScript code** for the page
+3. **Browser executes code** with `browserContext` and `jyne` parameters
+4. **Page builds UI** using Jyne API
+5. **User clicks navigation** button calling `browserContext.changePage(url)`
+6. **Process repeats** for new page
+
+History is maintained automatically with back/forward support.
+
+### Examples
+
+**Browser Application:**
+- **`examples/jynebrowser.ts`** - Jyne Browser executable
+
+**Sample Server:**
+- **`examples/server.js`** - Filesystem-based Node.js HTTP server
+  - Reads `.ts` files from `pages/` directory
+  - Maps URLs to files (/ → index.ts, /about → about.ts)
+  - Serves TypeScript code with proper Content-Type
+  - Custom 404 handling with 404.ts
+
+**Sample Pages:**
+- **`examples/pages/index.ts`** - Home page with navigation
+- **`examples/pages/about.ts`** - About page with information
+- **`examples/pages/contact.ts`** - Contact form with input fields
+- **`examples/pages/form.ts`** - Form demo with various widgets
+- **`examples/pages/thanks.ts`** - Thank you confirmation page
+- **`examples/pages/404.ts`** - Custom 404 error page
+
+**Run the examples:**
+```bash
+npm run build
+
+# Terminal 1: Start the sample server
+node examples/server.js
+
+# Terminal 2: Run Jyne Browser with URL parameter
+node examples/jynebrowser.js http://localhost:3000/
+```
+
+The browser will connect to the specified URL and load the Jyne TypeScript page. The browser window includes:
+- **Address bar** - Shows current URL, type new URLs to navigate
+- **Navigation buttons** - Back (←), Forward (→), Reload (⟳)
+- **Content area** - Displays the loaded Jyne page (scrollable)
+
+Click navigation buttons or type URLs to explore different pages served by the server.
+
+### Use Cases
+
+- **Desktop applications with remote pages** - Centrally managed UI served to desktop browsers
+- **Dynamic UIs** - Update pages server-side without redeploying desktop apps
+- **Multi-language backends** - Use your preferred server language (Java, Ruby, Python, etc.)
+- **Content management** - Serve different pages based on user permissions or data
+- **Progressive enhancement** - Start with static pages, add server logic later
+
+### Comparison to Web Browsers
+
+| Feature | Web Browsers (HTML) | Jyne Browser |
+|---------|-------------------|--------------|
+| **Content Format** | HTML + CSS + JS | **TypeScript** (Jyne API) |
+| **Declarative/Imperative** | Mixed (HTML declarative, JS imperative) | **Seamless declarative TypeScript** |
+| **Navigation** | `<a>` tags, `window.location` | `browserContext.changePage()` |
+| **Back/Forward** | Browser built-in | `browserContext.back/forward()` |
+| **Server Language** | Any (serves HTML) | Any (serves TypeScript) |
+| **Rendering** | Browser engine (Blink, Gecko) | Jyne/Fyne (native widgets) |
+| **Platform** | Web | Desktop (macOS, Windows, Linux) |
+
+## State Management and Architectural Patterns
+
+Jyne provides powerful state management utilities and supports multiple architectural patterns (MVC, MVVM, MVP) for building scalable applications.
+
+### State Passing and Two-Way Communication
+
+Jyne supports:
+- **Passing state into components**: Initialize widgets with data from your application
+- **Retrieving state back**: Get data from dialogs and forms (dialog pattern)
+- **Two-way data binding**: Keep state synchronized with UI automatically
+- **Observable state**: React to state changes automatically
+
+### Quick State Management Examples
+
+#### Observable State
+
+```typescript
+import { ObservableState } from 'jyne';
+
+const count = new ObservableState(0);
+let countLabel: any;
+
+// Subscribe to state changes
+count.subscribe((newValue) => {
+  countLabel?.setText(`Count: ${newValue}`);
+});
+
+app({ title: "State Demo" }, () => {
+  window({ title: "Observable State" }, () => {
+    vbox(() => {
+      countLabel = label("Count: 0");
+      button("Increment", () => count.set(count.get() + 1));
+    });
+  });
+});
+```
+
+#### State Store (Centralized State)
+
+```typescript
+import { StateStore } from 'jyne';
+
+interface AppState {
+  user: string;
+  count: number;
+}
+
+const store = new StateStore<AppState>({
+  user: 'Guest',
+  count: 0
+});
+
+// Subscribe to all state changes
+store.subscribe(state => {
+  console.log('State changed:', state);
+  updateUI(state);
+});
+
+// Update state
+store.set('user', 'John');
+store.update(s => ({ ...s, count: s.count + 1 }));
+```
+
+#### Dialog State Passing
+
+```typescript
+// Pass state into a dialog and get results back
+const dialog = new ProfileDialog(currentProfile);
+const result = await dialog.show();
+
+if (result.confirmed) {
+  store.update(state => ({
+    ...state,
+    profile: result.data
+  }));
+}
+```
+
+### Architectural Patterns
+
+Jyne supports standard UI architectural patterns:
+
+| Pattern | Best For | Example |
+|---------|----------|---------|
+| **MVC** | Traditional desktop apps, Swing-like architecture | [mvc-counter.ts](examples/mvc-counter.ts) |
+| **MVVM** | Data-heavy apps with automatic UI sync | [mvvm-todo.ts](examples/mvvm-todo.ts) |
+| **MVP** | Maximum testability, swappable views | [mvp-login.ts](examples/mvp-login.ts) |
+| **Data Binding** | Form inputs, real-time sync | [data-binding.ts](examples/data-binding.ts) |
+
+#### MVC Example
+
+```typescript
+// Model - Business logic
+class CounterModel extends Model {
+  private count = 0;
+  increment() { this.count++; this.notifyChanged(); }
+  getCount() { return this.count; }
+}
+
+// View - UI presentation
+class CounterView {
+  createUI(onIncrement: () => void) {
+    vbox(() => {
+      this.label = label('Count: 0');
+      button('Increment', onIncrement);
+    });
+  }
+}
+
+// Controller - Connects Model and View
+class CounterController {
+  constructor(private model: CounterModel, private view: CounterView) {
+    this.model.subscribe(() => this.updateView());
+  }
+  handleIncrement() { this.model.increment(); }
+}
+```
+
+#### MVVM Example
+
+```typescript
+// ViewModel with observable properties
+class TodoViewModel extends ViewModel {
+  todos = new ObservableState<TodoItem[]>([]);
+  newTodoText = new ObservableState('');
+
+  addTodo() {
+    this.model.addTodo(this.newTodoText.get());
+    this.newTodoText.set('');
+    this.updateFromModel();
+  }
+}
+
+// View binds to ViewModel
+class TodoView {
+  constructor(private viewModel: TodoViewModel) {
+    // Automatic UI updates when state changes
+    this.viewModel.todos.subscribe(() => this.updateUI());
+  }
+}
+```
+
+**See [PATTERNS.md](PATTERNS.md) for complete documentation on all architectural patterns, data binding, and state management.**
+
+### State Management Examples
+
+Check out these comprehensive examples:
+
+- **[data-binding.ts](examples/data-binding.ts)** - Two-way data binding with observable state
+- **[mvc-counter.ts](examples/mvc-counter.ts)** - Classic MVC pattern (like Swing)
+- **[mvvm-todo.ts](examples/mvvm-todo.ts)** - MVVM pattern with data binding
+- **[mvp-login.ts](examples/mvp-login.ts)** - MVP pattern with passive views
+- **[dialog-state.ts](examples/dialog-state.ts)** - Dialog state passing pattern
+
+Run the examples:
+
+```bash
+npm run build
+node examples/data-binding.js
+node examples/mvc-counter.js
+node examples/mvvm-todo.js
+```
 
 ## Architecture
 
@@ -316,16 +1867,83 @@ Jyne uses a unique architecture to bridge TypeScript and Go:
 
 Check out the `examples/` directory:
 
+**Getting Started:**
 - `hello.ts` - Simple Hello World
-- `calculator.ts` - Calculator with number pad
 - `counter.ts` - Counter with increment/decrement
+- `calculator.ts` - Calculator with number pad
 - `form.ts` - Form with text inputs
+
+**Widget Examples:**
+- `input-widgets.ts` - MultiLineEntry, PasswordEntry, Separator, and Hyperlink widgets
+- `advanced-widgets.ts` - Card, Accordion, Form, and Center layout
+- `specialized-widgets.ts` - Tree, RichText, Image, Border, and GridWrap
+- `checkbox.ts` - Checkbox with state tracking and callbacks
+- `select.ts` - Dropdown select with multiple options
+- `slider.ts` - Slider controls for volume, brightness, etc.
+- `radiogroup.ts` - Radio button groups for mutually exclusive choices
+- `progressbar.ts` - Progress indicators for downloads and loading
+- `scroll.ts` - Scrollable container for long content
+- `grid.ts` - Grid layout calculator example
+- `split.ts` - Resizable horizontal and vertical split containers
+- `tabs.ts` - Tabbed interface for organizing content
+- `table.ts` - Data tables with headers and sortable rows
+- `list.ts` - Scrollable lists with selection callbacks
+
+**Dialog Examples:**
+- `dialogs-info.ts` - Information and error dialogs
+- `dialogs-confirm.ts` - Confirmation dialogs for critical actions
+- `dialogs-file.ts` - File open and save dialogs
+
+**Advanced UI Examples:**
+- `window-sizing.ts` - Window sizing, positioning, and fullscreen
+- `menu-bar.ts` - Application menu bars with File/Edit/Help menus
+- `toolbar.ts` - Toolbars with actions, separators, and spacers
+- `theme.ts` - Light and dark theme switching with widget showcase
+
+**Pattern Examples:**
+- `data-binding.ts` - Two-way data binding with observable state
+- `mvc-counter.ts` - Classic MVC pattern (like Swing)
+- `mvvm-todo.ts` - MVVM pattern with data binding
+- `mvp-login.ts` - MVP pattern with passive views
+- `dialog-state.ts` - Dialog state passing pattern
+
+**Styling Examples:**
+- `form-unstyled.ts` - Registration form without custom styling
+- `form-styled.ts` - Same form with Swiby-like stylesheet applied
+- `form-styles.ts` - Stylesheet module defining visual styles
+
+**Browser Examples:**
+- `jynebrowser.ts` - Jyne Browser that loads TypeScript pages from web servers
+- `server.js` - Sample Node.js HTTP server serving multiple Jyne TypeScript pages
 
 Run an example:
 
 ```bash
 npm run build
 node examples/calculator.js
+node examples/input-widgets.js
+node examples/advanced-widgets.js
+node examples/specialized-widgets.js
+node examples/checkbox.js
+node examples/select.js
+node examples/slider.js
+node examples/radiogroup.js
+node examples/progressbar.js
+node examples/scroll.js
+node examples/grid.js
+node examples/split.js
+node examples/tabs.js
+node examples/dialogs-info.js
+node examples/dialogs-confirm.js
+node examples/dialogs-file.js
+node examples/window-sizing.js
+node examples/menu-bar.js
+node examples/toolbar.js
+node examples/theme.js
+node examples/table.js
+node examples/list.js
+node examples/form-unstyled.js
+node examples/form-styled.js
 ```
 
 ### Test Applications - Two Architectural Patterns
@@ -521,9 +2139,20 @@ MIT License - see [LICENSE](LICENSE) file for details
 - **[QUICKSTART.md](QUICKSTART.md)** - Get started in 5 minutes
 - **[README.md](README.md)** - You are here! Main documentation
 - **[PROS_AND_CONS.md](PROS_AND_CONS.md)** - Jyne vs Electron/Tauri comparison and decision guide
+- **[LLM.md](LLM.md)** - Quick reference guide for LLMs
+
+### State Management and Patterns
+- **[PATTERNS.md](PATTERNS.md)** - Complete guide to architectural patterns (MVC, MVVM, MVP), state management, and data binding
+- **[examples/data-binding.ts](examples/data-binding.ts)** - Observable state and computed state examples
+- **[examples/mvc-counter.ts](examples/mvc-counter.ts)** - MVC pattern implementation
+- **[examples/mvvm-todo.ts](examples/mvvm-todo.ts)** - MVVM pattern with ViewModels
+- **[examples/mvp-login.ts](examples/mvp-login.ts)** - MVP pattern with passive views
+- **[examples/dialog-state.ts](examples/dialog-state.ts)** - Dialog state passing pattern
 
 ### Testing
-- **[TESTING.md](TESTING.md)** - Complete guide to JyneTest testing framework
+- **[TESTING.md](TESTING.md)** - Complete guide to JyneTest testing framework (for apps/components)
+- **[BROWSER_TESTING.md](BROWSER_TESTING.md)** - Complete guide to JyneBrowserTest (for browser pages)
+- **[TESTING_CHECKLIST.md](TESTING_CHECKLIST.md)** - Comprehensive testing checklist for browser features
 - **[test-apps/README.md](test-apps/README.md)** - Two architectural patterns comparison
 - **[calculator-simple/README.md](test-apps/calculator-simple/README.md)** - Monolithic pattern
 - **[calculator-advanced/README.md](test-apps/calculator-advanced/README.md)** - Decomposed pattern

@@ -1,6 +1,6 @@
 import { App, AppOptions } from './app';
 import { Context } from './context';
-import { Button, Label, Entry, VBox, HBox } from './widgets';
+import { Button, Label, Entry, MultiLineEntry, PasswordEntry, Separator, Hyperlink, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, Split, Tabs, Toolbar, Table, List, Center, Card, Accordion, Form, Tree, RichText, Image, Border, GridWrap } from './widgets';
 import { Window, WindowOptions } from './window';
 
 // Global context for the declarative API
@@ -82,6 +82,361 @@ export function entry(placeholder?: string): Entry {
   return new Entry(globalContext, placeholder);
 }
 
+/**
+ * Create a multi-line entry (text area) widget
+ */
+export function multilineentry(placeholder?: string, wrapping?: 'off' | 'word' | 'break'): MultiLineEntry {
+  if (!globalContext) {
+    throw new Error('multilineentry() must be called within an app context');
+  }
+  return new MultiLineEntry(globalContext, placeholder, wrapping);
+}
+
+/**
+ * Create a password entry widget (masked text input)
+ */
+export function passwordentry(placeholder?: string): PasswordEntry {
+  if (!globalContext) {
+    throw new Error('passwordentry() must be called within an app context');
+  }
+  return new PasswordEntry(globalContext, placeholder);
+}
+
+/**
+ * Create a separator widget (horizontal line)
+ */
+export function separator(): Separator {
+  if (!globalContext) {
+    throw new Error('separator() must be called within an app context');
+  }
+  return new Separator(globalContext);
+}
+
+/**
+ * Create a hyperlink widget (clickable URL)
+ */
+export function hyperlink(text: string, url: string): Hyperlink {
+  if (!globalContext) {
+    throw new Error('hyperlink() must be called within an app context');
+  }
+  return new Hyperlink(globalContext, text, url);
+}
+
+/**
+ * Create a checkbox widget
+ */
+export function checkbox(text: string, onChanged?: (checked: boolean) => void): Checkbox {
+  if (!globalContext) {
+    throw new Error('checkbox() must be called within an app context');
+  }
+  return new Checkbox(globalContext, text, onChanged);
+}
+
+/**
+ * Create a select (dropdown) widget
+ */
+export function select(options: string[], onSelected?: (selected: string) => void): Select {
+  if (!globalContext) {
+    throw new Error('select() must be called within an app context');
+  }
+  return new Select(globalContext, options, onSelected);
+}
+
+/**
+ * Create a slider widget
+ */
+export function slider(
+  min: number,
+  max: number,
+  initialValue?: number,
+  onChanged?: (value: number) => void
+): Slider {
+  if (!globalContext) {
+    throw new Error('slider() must be called within an app context');
+  }
+  return new Slider(globalContext, min, max, initialValue, onChanged);
+}
+
+/**
+ * Create a progress bar widget
+ */
+export function progressbar(initialValue?: number, infinite?: boolean): ProgressBar {
+  if (!globalContext) {
+    throw new Error('progressbar() must be called within an app context');
+  }
+  return new ProgressBar(globalContext, initialValue, infinite);
+}
+
+/**
+ * Create a scroll container
+ */
+export function scroll(builder: () => void): Scroll {
+  if (!globalContext) {
+    throw new Error('scroll() must be called within an app context');
+  }
+  return new Scroll(globalContext, builder);
+}
+
+/**
+ * Create a grid layout container
+ */
+export function grid(columns: number, builder: () => void): Grid {
+  if (!globalContext) {
+    throw new Error('grid() must be called within an app context');
+  }
+  return new Grid(globalContext, columns, builder);
+}
+
+/**
+ * Create a radio group widget
+ */
+export function radiogroup(
+  options: string[],
+  initialSelected?: string,
+  onSelected?: (selected: string) => void
+): RadioGroup {
+  if (!globalContext) {
+    throw new Error('radiogroup() must be called within an app context');
+  }
+  return new RadioGroup(globalContext, options, initialSelected, onSelected);
+}
+
+/**
+ * Create a horizontal split container
+ */
+export function hsplit(
+  leadingBuilder: () => void,
+  trailingBuilder: () => void,
+  offset?: number
+): Split {
+  if (!globalContext) {
+    throw new Error('hsplit() must be called within an app context');
+  }
+  return new Split(globalContext, 'horizontal', leadingBuilder, trailingBuilder, offset);
+}
+
+/**
+ * Create a vertical split container
+ */
+export function vsplit(
+  leadingBuilder: () => void,
+  trailingBuilder: () => void,
+  offset?: number
+): Split {
+  if (!globalContext) {
+    throw new Error('vsplit() must be called within an app context');
+  }
+  return new Split(globalContext, 'vertical', leadingBuilder, trailingBuilder, offset);
+}
+
+/**
+ * Create a tabs container
+ */
+export function tabs(
+  tabDefinitions: Array<{title: string, builder: () => void}>,
+  location?: 'top' | 'bottom' | 'leading' | 'trailing'
+): Tabs {
+  if (!globalContext) {
+    throw new Error('tabs() must be called within an app context');
+  }
+  return new Tabs(globalContext, tabDefinitions, location);
+}
+
+/**
+ * Create a toolbar
+ */
+export function toolbar(
+  toolbarItems: Array<{
+    type: 'action' | 'separator' | 'spacer';
+    label?: string;
+    onAction?: () => void;
+  }>
+): Toolbar {
+  if (!globalContext) {
+    throw new Error('toolbar() must be called within an app context');
+  }
+  return new Toolbar(globalContext, toolbarItems);
+}
+
+/**
+ * Create a table
+ */
+export function table(headers: string[], data: string[][]): Table {
+  if (!globalContext) {
+    throw new Error('table() must be called within an app context');
+  }
+  return new Table(globalContext, headers, data);
+}
+
+/**
+ * Create a list
+ */
+export function list(items: string[], onSelected?: (index: number, item: string) => void): List {
+  if (!globalContext) {
+    throw new Error('list() must be called within an app context');
+  }
+  return new List(globalContext, items, onSelected);
+}
+
+/**
+ * Create a center layout (centers content)
+ */
+export function center(builder: () => void): Center {
+  if (!globalContext) {
+    throw new Error('center() must be called within an app context');
+  }
+  return new Center(globalContext, builder);
+}
+
+/**
+ * Create a card container with title, subtitle, and content
+ */
+export function card(title: string, subtitle: string, builder: () => void): Card {
+  if (!globalContext) {
+    throw new Error('card() must be called within an app context');
+  }
+  return new Card(globalContext, title, subtitle, builder);
+}
+
+/**
+ * Create an accordion (collapsible sections)
+ */
+export function accordion(items: Array<{title: string, builder: () => void}>): Accordion {
+  if (!globalContext) {
+    throw new Error('accordion() must be called within an app context');
+  }
+  return new Accordion(globalContext, items);
+}
+
+/**
+ * Create a form with labeled fields and submit/cancel buttons
+ */
+export function form(
+  items: Array<{label: string, widget: any}>,
+  onSubmit?: () => void,
+  onCancel?: () => void
+): Form {
+  if (!globalContext) {
+    throw new Error('form() must be called within an app context');
+  }
+  return new Form(globalContext, items, onSubmit, onCancel);
+}
+
+/**
+ * Create a tree widget for hierarchical data
+ */
+export function tree(rootLabel: string): Tree {
+  if (!globalContext) {
+    throw new Error('tree() must be called within an app context');
+  }
+  return new Tree(globalContext, rootLabel);
+}
+
+/**
+ * Create a rich text widget with formatted text segments
+ */
+export function richtext(segments: Array<{
+  text: string;
+  bold?: boolean;
+  italic?: boolean;
+  monospace?: boolean;
+}>): RichText {
+  if (!globalContext) {
+    throw new Error('richtext() must be called within an app context');
+  }
+  return new RichText(globalContext, segments);
+}
+
+/**
+ * Create an image widget
+ */
+export function image(path: string, fillMode?: 'contain' | 'stretch' | 'original'): Image {
+  if (!globalContext) {
+    throw new Error('image() must be called within an app context');
+  }
+  return new Image(globalContext, path, fillMode);
+}
+
+/**
+ * Create a border layout
+ */
+export function border(config: {
+  top?: () => void;
+  bottom?: () => void;
+  left?: () => void;
+  right?: () => void;
+  center?: () => void;
+}): Border {
+  if (!globalContext) {
+    throw new Error('border() must be called within an app context');
+  }
+  return new Border(globalContext, config);
+}
+
+/**
+ * Create a grid wrap layout
+ */
+export function gridwrap(itemWidth: number, itemHeight: number, builder: () => void): GridWrap {
+  if (!globalContext) {
+    throw new Error('gridwrap() must be called within an app context');
+  }
+  return new GridWrap(globalContext, itemWidth, itemHeight, builder);
+}
+
+/**
+ * Set the application theme
+ */
+export async function setTheme(theme: 'dark' | 'light'): Promise<void> {
+  if (!globalApp) {
+    throw new Error('setTheme() must be called within an app context');
+  }
+  await globalApp.setTheme(theme);
+}
+
+/**
+ * Get the current application theme
+ */
+export async function getTheme(): Promise<'dark' | 'light'> {
+  if (!globalApp) {
+    throw new Error('getTheme() must be called within an app context');
+  }
+  return await globalApp.getTheme();
+}
+
 // Export classes for advanced usage
-export { App, Window, Button, Label, Entry, VBox, HBox };
+export { App, Window, Button, Label, Entry, MultiLineEntry, PasswordEntry, Separator, Hyperlink, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, Split, Tabs, Toolbar, Table, List, Center, Card, Accordion, Form, Tree, RichText, Image, Border, GridWrap };
 export type { AppOptions, WindowOptions };
+
+// Export state management utilities
+export {
+  ObservableState,
+  ComputedState,
+  StateStore,
+  TwoWayBinding,
+  DialogResult,
+  ViewModel,
+  Model
+} from './state';
+export type { BindingOptions } from './state';
+
+// Export styling system
+export {
+  styles,
+  clearStyles,
+  getStyleSheet,
+  StyleSheet,
+  FontFamily,
+  FontStyle
+} from './styles';
+export type { WidgetStyle, WidgetSelector } from './styles';
+
+// Export context menu
+export type { ContextMenuItem } from './widgets';
+
+// Export browser system
+export { Browser, createBrowser } from './browser';
+export type { BrowserContext, PageMenuItem } from './browser';
+
+// Export browser testing
+export { JyneBrowserTest, browserTest, describeBrowser } from './jyne-browser-test';
+export type { BrowserTestOptions, TestPage } from './jyne-browser-test';
