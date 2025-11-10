@@ -909,7 +909,9 @@ node examples/form-styled.js     # With styles
 
 ## Browser System
 
-Jyne includes a Swiby-inspired browser system that loads Jyne TypeScript pages from web servers dynamically, similar to how Mosaic, Firefox, or Chrome load HTML pages. This enables server-side page generation from any language or framework (Spring, Sinatra, Flask, Express, etc.).
+Jyne includes a Swiby-inspired browser system that loads **Jyne TypeScript pages** from web servers dynamically, similar to how Mosaic, Firefox, or Chrome load HTML pages. This enables server-side page generation from any language or framework (Spring, Sinatra, Flask, Express, etc.).
+
+**Important:** Jyne's page grammar is **TypeScript** (not JavaScript or HTML). Pages are TypeScript code that use the Jyne API.
 
 ### Why a Browser?
 
@@ -922,13 +924,22 @@ Unlike HTML+JavaScript which mixes declarative markup with imperative scripts, J
 
 ### Quick Start
 
-**Create a browser:**
+**Run the browser:**
+```bash
+# With a URL parameter
+node examples/jynebrowser.js http://localhost:3000/
+
+# Or any other URL serving Jyne TypeScript pages
+node examples/jynebrowser.js https://example.com/jyne/index
+```
+
+**Create a browser in code:**
 ```typescript
 import { createBrowser } from 'jyne';
 
 async function main() {
   const browser = await createBrowser('http://localhost:3000/', {
-    title: 'My Jyne Browser',
+    title: 'Jyne Browser',
     width: 900,
     height: 700
   });
@@ -1065,7 +1076,7 @@ Pages also receive a `jyne` object with all Jyne API functions.
 
 ### Page Format
 
-Jyne pages are TypeScript code that execute in the browser context. They receive two parameters:
+**Jyne pages are TypeScript code** (not HTML or JavaScript) that execute in the browser context. They receive two parameters:
 
 1. **`browserContext`** - Navigation and browser functions
 2. **`jyne`** - All Jyne API functions (window, vbox, label, button, etc.)
@@ -1182,10 +1193,10 @@ History is maintained automatically with back/forward support.
 ### Examples
 
 **Browser Application:**
-- **`examples/browser.ts`** - Complete browser implementation
+- **`examples/jynebrowser.ts`** - Jyne Browser executable
 
 **Sample Server:**
-- **`examples/server.js`** - Node.js HTTP server serving multiple Jyne pages
+- **`examples/server.js`** - Node.js HTTP server serving multiple Jyne TypeScript pages
   - Home page with navigation
   - About page with information
   - Contact form with input fields
@@ -1197,14 +1208,19 @@ History is maintained automatically with back/forward support.
 ```bash
 npm run build
 
-# Terminal 1: Start the server
+# Terminal 1: Start the sample server
 node examples/server.js
 
-# Terminal 2: Start the browser
-node examples/browser.js
+# Terminal 2: Run Jyne Browser with URL parameter
+node examples/jynebrowser.js http://localhost:3000/
 ```
 
-The browser will connect to `http://localhost:3000/` and load the home page. Click navigation buttons to explore the different pages served by the server.
+The browser will connect to the specified URL and load the Jyne TypeScript page. The browser window includes:
+- **Address bar** - Shows current URL, type new URLs to navigate
+- **Navigation buttons** - Back (←), Forward (→), Reload (⟳)
+- **Content area** - Displays the loaded Jyne page (scrollable)
+
+Click navigation buttons or type URLs to explore different pages served by the server.
 
 ### Use Cases
 
@@ -1218,8 +1234,8 @@ The browser will connect to `http://localhost:3000/` and load the home page. Cli
 
 | Feature | Web Browsers (HTML) | Jyne Browser |
 |---------|-------------------|--------------|
-| **Content Format** | HTML + CSS + JS | TypeScript (Jyne API) |
-| **Declarative/Imperative** | Mixed (HTML declarative, JS imperative) | Seamless declarative TypeScript |
+| **Content Format** | HTML + CSS + JS | **TypeScript** (Jyne API) |
+| **Declarative/Imperative** | Mixed (HTML declarative, JS imperative) | **Seamless declarative TypeScript** |
 | **Navigation** | `<a>` tags, `window.location` | `browserContext.changePage()` |
 | **Back/Forward** | Browser built-in | `browserContext.back/forward()` |
 | **Server Language** | Any (serves HTML) | Any (serves TypeScript) |
@@ -1474,8 +1490,8 @@ Check out the `examples/` directory:
 - `form-styles.ts` - Stylesheet module defining visual styles
 
 **Browser Examples:**
-- `browser.ts` - Jyne browser application that loads pages from web servers
-- `server.js` - Sample Node.js HTTP server serving multiple Jyne pages
+- `jynebrowser.ts` - Jyne Browser that loads TypeScript pages from web servers
+- `server.js` - Sample Node.js HTTP server serving multiple Jyne TypeScript pages
 
 Run an example:
 
