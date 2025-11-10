@@ -496,6 +496,83 @@ Widget-specific methods:
 - **RadioGroup**: `setSelected(value: string)`, `getSelected(): Promise<string>`
 - **ProgressBar**: `setProgress(value: number)`, `getProgress(): Promise<number>`
 
+## Theme Support
+
+Jyne supports light and dark themes that automatically apply to all widgets in your application.
+
+### Setting the Theme
+
+```typescript
+import { app, setTheme } from 'jyne';
+
+app({ title: 'My App' }, () => {
+  // Switch to dark theme
+  await setTheme('dark');
+
+  // Switch to light theme
+  await setTheme('light');
+
+  // Get current theme
+  const currentTheme = await getTheme(); // Returns 'dark' or 'light'
+});
+```
+
+### Using Theme with App Instance
+
+```typescript
+const myApp = app({ title: 'My App' }, () => {
+  // ... build your UI
+});
+
+// Set theme on app instance
+await myApp.setTheme('dark');
+
+// Get current theme
+const theme = await myApp.getTheme();
+```
+
+### Theme Features
+
+- **Automatic widget styling**: All widgets automatically adapt to the selected theme
+- **Light theme**: Bright background with dark text, suitable for well-lit environments
+- **Dark theme**: Dark background with light text, suitable for low-light environments
+- **Runtime switching**: Change themes dynamically without restarting the application
+- **Persistent across windows**: Theme applies to all windows in the application
+
+### Example: Theme Switcher
+
+```typescript
+import { app, window, vbox, button, label } from 'jyne';
+
+let themeLabel: any;
+
+app({ title: 'Theme Demo' }, () => {
+  window({ title: 'Theme Switcher' }, (win) => {
+    win.setContent(() => {
+      vbox(() => {
+        themeLabel = label('Current Theme: Light');
+
+        button('Dark Theme', async () => {
+          const myApp = (win as any).ctx.bridge;
+          await myApp.send('setTheme', { theme: 'dark' });
+          themeLabel.setText('Current Theme: Dark');
+        });
+
+        button('Light Theme', async () => {
+          const myApp = (win as any).ctx.bridge;
+          await myApp.send('setTheme', { theme: 'light' });
+          themeLabel.setText('Current Theme: Light');
+        });
+      });
+    });
+
+    win.show();
+  });
+});
+```
+
+See `examples/theme.ts` for a complete theme demonstration with various widgets.
+
 ## State Management and Architectural Patterns
 
 Jyne provides powerful state management utilities and supports multiple architectural patterns (MVC, MVVM, MVP) for building scalable applications.
@@ -726,6 +803,7 @@ Check out the `examples/` directory:
 - `window-sizing.ts` - Window sizing, positioning, and fullscreen
 - `menu-bar.ts` - Application menu bars with File/Edit/Help menus
 - `toolbar.ts` - Toolbars with actions, separators, and spacers
+- `theme.ts` - Light and dark theme switching with widget showcase
 
 **Pattern Examples:**
 - `data-binding.ts` - Two-way data binding with observable state
@@ -754,6 +832,7 @@ node examples/dialogs-file.js
 node examples/window-sizing.js
 node examples/menu-bar.js
 node examples/toolbar.js
+node examples/theme.js
 node examples/table.js
 node examples/list.js
 ```

@@ -183,6 +183,10 @@ func (b *Bridge) handleMessage(msg Message) {
 		b.handleUpdateTableData(msg)
 	case "updateListData":
 		b.handleUpdateListData(msg)
+	case "setTheme":
+		b.handleSetTheme(msg)
+	case "getTheme":
+		b.handleGetTheme(msg)
 	case "quit":
 		b.handleQuit(msg)
 	// Testing methods
@@ -1761,6 +1765,51 @@ func (b *Bridge) handleUpdateListData(msg Message) {
 			Error:   "Widget is not a list",
 		})
 	}
+}
+
+func (b *Bridge) handleSetTheme(msg Message) {
+	theme := msg.Payload["theme"].(string)
+
+	var fyneTheme fyne.Theme
+	switch theme {
+	case "dark":
+		fyneTheme = fyne.NewDarkTheme()
+	case "light":
+		fyneTheme = fyne.NewLightTheme()
+	default:
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   fmt.Sprintf("Unknown theme: %s. Use 'dark' or 'light'", theme),
+		})
+		return
+	}
+
+	b.app.Settings().SetTheme(fyneTheme)
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+	})
+}
+
+func (b *Bridge) handleGetTheme(msg Message) {
+	// Determine current theme by checking app settings
+	// Fyne doesn't have a direct "get theme" API, so we'll check the variant
+	isDark := b.app.Settings().ThemeVariant() == fyne.ThemeVariantDark
+
+	theme := "light"
+	if isDark {
+		theme = "dark"
+	}
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+		Result: map[string]interface{}{
+			"theme": theme,
+		},
+	})
 }
 
 func (b *Bridge) handleQuit(msg Message) {

@@ -238,6 +238,26 @@ export function list(items: string[], onSelected?: (index: number, item: string)
   return new List(globalContext, items, onSelected);
 }
 
+/**
+ * Set the application theme
+ */
+export async function setTheme(theme: 'dark' | 'light'): Promise<void> {
+  if (!globalApp) {
+    throw new Error('setTheme() must be called within an app context');
+  }
+  await globalApp.setTheme(theme);
+}
+
+/**
+ * Get the current application theme
+ */
+export async function getTheme(): Promise<'dark' | 'light'> {
+  if (!globalApp) {
+    throw new Error('getTheme() must be called within an app context');
+  }
+  return await globalApp.getTheme();
+}
+
 // Export classes for advanced usage
 export { App, Window, Button, Label, Entry, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, Split, Tabs, Toolbar, Table, List };
 export type { AppOptions, WindowOptions };
