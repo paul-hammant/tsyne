@@ -907,6 +907,133 @@ node examples/form-unstyled.js   # Without styles
 node examples/form-styled.js     # With styles
 ```
 
+## Context Menus
+
+All Jyne widgets support right-click context menus, enabling contextual actions based on what the user clicks.
+
+### Usage
+
+Use `widget.setContextMenu()` to add a context menu to any widget:
+
+```typescript
+const todoLabel = label('Buy potatoes');
+
+todoLabel.setContextMenu([
+  {
+    label: 'Mark Complete',
+    onSelected: () => {
+      console.log('Marked complete!');
+    }
+  },
+  {
+    label: 'Edit',
+    onSelected: () => {
+      console.log('Edit item');
+    }
+  },
+  { isSeparator: true },
+  {
+    label: 'Delete',
+    onSelected: () => {
+      console.log('Delete item');
+    }
+  }
+]);
+```
+
+### Menu Item Options
+
+```typescript
+interface ContextMenuItem {
+  label: string;           // Menu item text
+  onSelected: () => void;  // Callback when selected
+  disabled?: boolean;      // Gray out and disable item
+  checked?: boolean;       // Show checkmark
+  isSeparator?: boolean;   // Render as separator line
+}
+```
+
+### Examples
+
+**Todo List with Context Menus:**
+```typescript
+const items = ['Buy milk', 'Buy potatoes', 'Call dentist'];
+
+items.forEach(item => {
+  const itemLabel = label(`☐ ${item}`);
+
+  itemLabel.setContextMenu([
+    {
+      label: 'Mark Complete',
+      onSelected: () => markComplete(item)
+    },
+    {
+      label: 'Edit',
+      onSelected: () => editItem(item)
+    },
+    { isSeparator: true },
+    {
+      label: 'Delete',
+      onSelected: () => deleteItem(item)
+    }
+  ]);
+});
+```
+
+**Document Editor with Context Menu:**
+```typescript
+const textEntry = entry('Document text...');
+
+textEntry.setContextMenu([
+  {
+    label: 'Cut',
+    onSelected: () => clipboard.cut()
+  },
+  {
+    label: 'Copy',
+    onSelected: () => clipboard.copy()
+  },
+  {
+    label: 'Paste',
+    onSelected: () => clipboard.paste()
+  },
+  { isSeparator: true },
+  {
+    label: 'Select All',
+    onSelected: () => selectAll()
+  }
+]);
+```
+
+**Dynamic Menu Items:**
+```typescript
+const label = label('Status: Active');
+
+label.setContextMenu([
+  {
+    label: 'Enable Feature',
+    checked: featureEnabled,
+    onSelected: () => toggleFeature()
+  },
+  {
+    label: 'Admin Only',
+    disabled: !isAdmin,
+    onSelected: () => adminAction()
+  }
+]);
+```
+
+### Demo
+
+See **`examples/pages/context-menu-demo.ts`** for a complete todo list example with context menus.
+
+```bash
+npm run build
+node examples/server.js
+node examples/jynebrowser.js http://localhost:3000/
+# Navigate to Context Menu Demo page and right-click on todo items
+```
+
 ## Browser System
 
 Jyne includes a Swiby-inspired browser system that loads **Jyne TypeScript pages** from web servers dynamically, similar to how Mosaic, Firefox, or Chrome load HTML pages. This enables server-side page generation from any language or framework (Spring, Sinatra, Flask, Express, etc.).

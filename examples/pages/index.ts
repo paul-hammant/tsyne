@@ -25,4 +25,8 @@ vbox(() => {
   button('Go to Menu Demo', () => {
     browserContext.changePage('/menu-demo');
   });
+
+  button('Go to Context Menu Demo', () => {
+    browserContext.changePage('/context-menu-demo');
+  });
 });

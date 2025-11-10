@@ -41,16 +41,17 @@ type Event struct {
 
 // Bridge manages the Fyne app and communication
 type Bridge struct {
-	app        fyne.App
-	windows    map[string]fyne.Window
-	widgets    map[string]fyne.CanvasObject
-	callbacks  map[string]string // widget ID -> callback ID
-	testMode   bool              // true for headless testing
-	mu         sync.RWMutex
-	writer     *json.Encoder
-	widgetMeta map[string]WidgetMetadata      // metadata for testing
-	tableData  map[string][][]string          // table ID -> data
-	listData   map[string][]string            // list ID -> data
+	app          fyne.App
+	windows      map[string]fyne.Window
+	widgets      map[string]fyne.CanvasObject
+	callbacks    map[string]string // widget ID -> callback ID
+	contextMenus map[string]*fyne.Menu // widget ID -> context menu
+	testMode     bool              // true for headless testing
+	mu           sync.RWMutex
+	writer       *json.Encoder
+	widgetMeta   map[string]WidgetMetadata      // metadata for testing
+	tableData    map[string][][]string          // table ID -> data
+	listData     map[string][]string            // list ID -> data
 }
 
 // WidgetMetadata stores metadata about widgets for testing
@@ -68,15 +69,16 @@ func NewBridge(testMode bool) *Bridge {
 	}
 
 	return &Bridge{
-		app:        fyneApp,
-		windows:    make(map[string]fyne.Window),
-		widgets:    make(map[string]fyne.CanvasObject),
-		callbacks:  make(map[string]string),
-		testMode:   testMode,
-		writer:     json.NewEncoder(os.Stdout),
-		widgetMeta: make(map[string]WidgetMetadata),
-		tableData:  make(map[string][][]string),
-		listData:   make(map[string][]string),
+		app:          fyneApp,
+		windows:      make(map[string]fyne.Window),
+		widgets:      make(map[string]fyne.CanvasObject),
+		callbacks:    make(map[string]string),
+		contextMenus: make(map[string]*fyne.Menu),
+		testMode:     testMode,
+		writer:       json.NewEncoder(os.Stdout),
+		widgetMeta:   make(map[string]WidgetMetadata),
+		tableData:    make(map[string][][]string),
+		listData:     make(map[string][]string),
 	}
 }
 
@@ -216,6 +218,8 @@ func (b *Bridge) handleMessage(msg Message) {
 		b.handleGetTheme(msg)
 	case "setWidgetStyle":
 		b.handleSetWidgetStyle(msg)
+	case "setWidgetContextMenu":
+		b.handleSetWidgetContextMenu(msg)
 	case "quit":
 		b.handleQuit(msg)
 	// Testing methods
@@ -2568,6 +2572,152 @@ func (b *Bridge) handleGetAllWidgets(msg Message) {
 		Result: map[string]interface{}{
 			"widgets": widgets,
 		},
+	})
+}
+
+// TappableWrapper wraps a widget and adds context menu support via right-click
+type TappableWrapper struct {
+	widget.BaseWidget
+	content fyne.CanvasObject
+	menu    *fyne.Menu
+	canvas  fyne.Canvas
+}
+
+func NewTappableWrapper(content fyne.CanvasObject) *TappableWrapper {
+	w := &TappableWrapper{
+		content: content,
+	}
+	w.ExtendBaseWidget(w)
+	return w
+}
+
+func (t *TappableWrapper) CreateRenderer() fyne.WidgetRenderer {
+	return widget.NewSimpleRenderer(t.content)
+}
+
+func (t *TappableWrapper) TappedSecondary(pe *fyne.PointEvent) {
+	if t.menu != nil && t.canvas != nil {
+		// Show popup menu at click position
+		widget.ShowPopUpMenuAtPosition(t.menu, t.canvas, pe.AbsolutePosition)
+	}
+}
+
+func (t *TappableWrapper) SetMenu(menu *fyne.Menu) {
+	t.menu = menu
+}
+
+func (t *TappableWrapper) SetCanvas(canvas fyne.Canvas) {
+	t.canvas = canvas
+}
+
+func (b *Bridge) handleSetWidgetContextMenu(msg Message) {
+	widgetID, ok := msg.Payload["widgetId"].(string)
+	if !ok {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "widgetId is required",
+		})
+		return
+	}
+
+	items, ok := msg.Payload["items"].([]interface{})
+	if !ok {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "items array is required",
+		})
+		return
+	}
+
+	b.mu.Lock()
+	defer b.mu.Unlock()
+
+	widget, exists := b.widgets[widgetID]
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget not found",
+		})
+		return
+	}
+
+	// Build menu items
+	var menuItems []*fyne.MenuItem
+	for _, item := range items {
+		itemMap, ok := item.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		label, ok := itemMap["label"].(string)
+		if !ok {
+			continue
+		}
+
+		// Check if it's a separator
+		if isSep, ok := itemMap["isSeparator"].(bool); ok && isSep {
+			menuItems = append(menuItems, fyne.NewMenuItemSeparator())
+			continue
+		}
+
+		// Get callback ID
+		callbackID, _ := itemMap["callbackId"].(string)
+
+		// Check if disabled
+		disabled := false
+		if d, ok := itemMap["disabled"].(bool); ok {
+			disabled = d
+		}
+
+		// Check if checked
+		checked := false
+		if c, ok := itemMap["checked"].(bool); ok {
+			checked = c
+		}
+
+		menuItem := fyne.NewMenuItem(label, func(cid string) func() {
+			return func() {
+				// Send callback event
+				b.sendEvent(Event{
+					Type:     "callback",
+					WidgetID: cid,
+				})
+			}
+		}(callbackID))
+
+		menuItem.Disabled = disabled
+		menuItem.Checked = checked
+
+		menuItems = append(menuItems, menuItem)
+	}
+
+	// Create menu
+	menu := fyne.NewMenu("", menuItems...)
+	b.contextMenus[widgetID] = menu
+
+	// Wrap the widget to add context menu support
+	// We need to find which window this widget belongs to
+	var targetWindow fyne.Window
+	for _, win := range b.windows {
+		targetWindow = win
+		break // Use first window for now
+	}
+
+	if targetWindow != nil {
+		wrapper := NewTappableWrapper(widget)
+		wrapper.SetMenu(menu)
+		wrapper.SetCanvas(targetWindow.Canvas())
+
+		// Replace the widget with the wrapper
+		b.widgets[widgetID] = wrapper
+	}
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
 	})
 }
 

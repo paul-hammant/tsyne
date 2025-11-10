@@ -2,6 +2,17 @@ import { Context } from './context';
 import { applyStyleForWidget, WidgetSelector } from './styles';
 
 /**
+ * Context menu item
+ */
+export interface ContextMenuItem {
+  label: string;
+  onSelected: () => void;
+  disabled?: boolean;
+  checked?: boolean;
+  isSeparator?: boolean;
+}
+
+/**
  * Base class for all widgets
  */
 export abstract class Widget {
@@ -18,6 +29,32 @@ export abstract class Widget {
    */
   protected async applyStyles(widgetType: WidgetSelector): Promise<void> {
     await applyStyleForWidget(this.ctx, this.id, widgetType);
+  }
+
+  /**
+   * Set context menu for this widget (shown on right-click)
+   */
+  async setContextMenu(items: ContextMenuItem[]): Promise<void> {
+    const menuItems = items.map(item => {
+      if (item.isSeparator) {
+        return { isSeparator: true };
+      }
+
+      const callbackId = this.ctx.generateId('callback');
+      this.ctx.bridge.registerEventHandler(callbackId, item.onSelected);
+
+      return {
+        label: item.label,
+        callbackId,
+        disabled: item.disabled,
+        checked: item.checked
+      };
+    });
+
+    await this.ctx.bridge.send('setWidgetContextMenu', {
+      widgetId: this.id,
+      items: menuItems
+    });
   }
 
   async setText(text: string): Promise<void> {
