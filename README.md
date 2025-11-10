@@ -459,7 +459,12 @@ Returns: `Promise<void>`
 - **`getContext()`**: Get TestContext for widget interaction
 - **`cleanup()`**: Stop server and quit browser
 
-**See [examples/browser.test.ts](examples/browser.test.ts) for comprehensive browser testing examples.**
+**See [BROWSER_TESTING.md](BROWSER_TESTING.md) for complete documentation on JyneBrowserTest, including:**
+- Playwright-inspired locators, actions, and expectations
+- Integration with Jest, Mocha, Vitest, and other test runners
+- Assertion library flexibility (Jest, Chai, assert, etc.)
+- Complete API reference and best practices
+- **[examples/browser.test.ts](examples/browser.test.ts)** for comprehensive examples
 
 ## API Reference
 
@@ -2145,7 +2150,9 @@ MIT License - see [LICENSE](LICENSE) file for details
 - **[examples/dialog-state.ts](examples/dialog-state.ts)** - Dialog state passing pattern
 
 ### Testing
-- **[TESTING.md](TESTING.md)** - Complete guide to JyneTest testing framework
+- **[TESTING.md](TESTING.md)** - Complete guide to JyneTest testing framework (for apps/components)
+- **[BROWSER_TESTING.md](BROWSER_TESTING.md)** - Complete guide to JyneBrowserTest (for browser pages)
+- **[TESTING_CHECKLIST.md](TESTING_CHECKLIST.md)** - Comprehensive testing checklist for browser features
 - **[test-apps/README.md](test-apps/README.md)** - Two architectural patterns comparison
 - **[calculator-simple/README.md](test-apps/calculator-simple/README.md)** - Monolithic pattern
 - **[calculator-advanced/README.md](test-apps/calculator-advanced/README.md)** - Decomposed pattern
