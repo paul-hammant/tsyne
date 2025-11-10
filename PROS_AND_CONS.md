@@ -8,37 +8,21 @@ This document provides an honest assessment of Jyne's position in the JavaScript
 
 **Jyne is most directly an alternative to Electron** (the technology behind VS Code, Slack, Discord, Figma, etc.)
 
-| Aspect | Electron | Jyne |
-|--------|----------|------|
-| **Bundle Size** | 100-300+ MB | ~10-20 MB |
-| **Memory Usage** | High (Chromium + Node) | Low (native widgets) |
-| **Startup Time** | Slower (browser engine) | Fast (native) |
-| **UI Technology** | HTML/CSS/DOM | Native Fyne widgets |
-| **Performance** | Web rendering overhead | True native performance |
-| **Learning Curve** | Familiar (web stack) | New (Fyne widget API) |
-| **Ecosystem** | Massive | Small/growing |
-| **Reuse Web Code** | ✅ Yes | ❌ No |
-| **Third-Party UI Libraries** | Thousands (React, Vue, Angular, Material-UI, Ant Design, etc.) | None (Fyne widgets only) |
-| **CSS Styling** | ✅ Full control | ❌ Limited theming |
-| **Community** | Huge | Small |
+| Aspect | Electron | Tauri | Jyne |
+|--------|----------|-------|------|
+| **Bundle Size** | 100-300+ MB | 5-15 MB | ~10-20 MB |
+| **Memory Usage** | High (Chromium + Node) | Medium (WebView) | Low (native widgets) |
+| **Startup Time** | Slower (browser engine) | Medium (WebView) | Fast (native) |
+| **UI Technology** | HTML/CSS/DOM | HTML/CSS/WebView | Native Fyne widgets |
+| **Performance** | Web rendering overhead | WebView rendering | True native performance |
+| **Learning Curve** | Familiar (web stack) | Familiar (web stack) | New (Fyne widget API) |
+| **Ecosystem** | Massive | Massive | Small/growing |
+| **Reuse Web Code** | ✅ Yes | ✅ Yes | ❌ No |
+| **Third-Party UI Libraries** | Thousands (React, Vue, Angular, Material-UI, Ant Design, etc.) | Thousands (React, Vue, Angular, Material-UI, Ant Design, etc.) | Fyne widgets + styling system |
+| **CSS Styling** | ✅ Full control | ✅ Full control | ⚠️ CSS-like styling system |
+| **Community** | Huge | Growing | Small |
 
 ### Secondary Alternatives
-
-**Tauri** - Lighter Electron alternative (Rust + WebView)
-- Uses system WebView instead of bundled Chromium
-- ~5-10 MB bundles
-- Still HTML/CSS/DOM-based
-- Jyne is similar weight but truly native (no WebView)
-
-**NW.js** - Older Electron competitor
-- Similar architecture to Electron
-- Less popular, smaller community
-- Same web stack tradeoffs
-
-**Wails** - Go + Web (similar to Tauri)
-- Go backend with HTML/CSS frontend
-- Uses system WebView
-- Jyne uses native widgets instead
 
 **React Native Desktop** / **Proton Native**
 - Native rendering from React
@@ -60,8 +44,9 @@ Electron App:
 
 Jyne App:
 ├── Jyne bridge binary: ~5-10 MB
+├── Node.js runtime: ~50 MB (required, often pre-installed)
 ├── Your code: ~1 MB
-└── Total: 6-15 MB
+└── Total: 56-61 MB (or 6-11 MB if Node.js already installed)
 ```
 
 **Why this matters:**
@@ -157,7 +142,7 @@ Build once, deploy to:
 
 **This is Jyne's biggest disadvantage.**
 
-**DOM-centric technologies (Electron, Tauri, NW.js) have access to:**
+**DOM-centric technologies (Electron, Tauri) have access to:**
 - **Thousands of UI libraries**: React, Vue, Angular, Svelte, Solid
 - **Component libraries**: Material-UI, Ant Design, Chakra UI, Tailwind UI, Bootstrap
 - **CSS frameworks**: Tailwind, Bootstrap, Bulma, Foundation
@@ -172,25 +157,28 @@ Build once, deploy to:
 - **Infinite scrolling, virtual lists, carousels, modals, tooltips, etc.**
 
 **Jyne has:**
-- 3 widgets (Button, Label, Entry) - see [ROADMAP.md](ROADMAP.md)
-- Basic layouts (VBox, HBox)
+- 17+ widgets (Button, Label, Entry, MultiLineEntry, PasswordEntry, Checkbox, Select, Slider, ProgressBar, RadioGroup, Table, List, Form, Separator, Hyperlink, RichText, Image, Tree) - see [ROADMAP.md](ROADMAP.md)
+- Advanced layouts (VBox, HBox, Grid, Split, Tabs, Scroll, Center, Card, Accordion, Border, GridWrap)
+- Toolbar and Menu support
+- CSS-like styling system (fonts, colors, text alignment)
 - No third-party component ecosystem
-- No CSS styling
 
 **Implication**: If you need rich, complex UIs with advanced components, use Electron.
 
 ### ❌ Limited Widget Library
 
 **Current state (v0.1.0):**
-- ✅ Button, Label, Entry
-- ✅ VBox, HBox layouts
-- ❌ No: Tables, Lists, Trees, Tabs, Dialogs, Menus, Canvas, etc.
+- ✅ 17+ widgets: Button, Label, Entry, MultiLineEntry, PasswordEntry, Checkbox, Select, Slider, ProgressBar, RadioGroup, Table, List, Form, Tree, etc.
+- ✅ Advanced layouts: VBox, HBox, Grid, Split, Tabs, Scroll, Center, Card, Accordion, Border, GridWrap
+- ✅ Toolbar, Menu system, Context menus
+- ✅ CSS-like styling system
+- ❌ No: Canvas, File pickers, Custom animations, Advanced data visualization
 
 **See [ROADMAP.md](ROADMAP.md) for implementation plan.**
 
-**Coverage: ~15% of Fyne's features**
+**Coverage: ~40% of Fyne's features**
 
-For production apps, you'll need to wait for more widgets or implement them yourself.
+For production apps with very complex UIs, you may still need additional widgets.
 
 ### ❌ Cannot Reuse Existing Web Code
 
@@ -202,7 +190,7 @@ For production apps, you'll need to wait for more widgets or implement them your
 
 **You cannot use them with Jyne.** Full rewrite required.
 
-### ❌ No CSS Styling
+### ⚠️ Limited CSS Styling
 
 **Electron:**
 ```css
@@ -217,10 +205,32 @@ For production apps, you'll need to wait for more widgets or implement them your
 
 **Jyne:**
 ```typescript
-button("Click Me", onClick) // Uses Fyne's default styling
+// CSS-like styling system available
+styles({
+  root: {
+    font_family: FontFamily.SANS_SERIF,
+    font_size: 12
+  },
+  button: {
+    font_weight: 'bold',
+    color: 0x0000FF,
+    background_color: 0xEEEEEE
+  }
+});
+
+button("Click Me", onClick) // Styles auto-applied
 ```
 
-Limited theming options (dark/light mode). No fine-grained control.
+**Jyne supports:**
+- Font properties (family, size, weight, style)
+- Colors (foreground, background)
+- Text alignment
+- Theming (dark/light mode)
+
+**Jyne lacks:**
+- Borders, shadows, gradients
+- Padding, margins (controlled by layouts)
+- Advanced CSS features (animations, transforms, flexbox, grid)
 
 ### ❌ Small Community
 
@@ -429,8 +439,8 @@ app(() => {
 | **Bundle Size** | 100-300 MB | 5-15 MB | 10-20 MB |
 | **Memory Usage** | High (100-500 MB) | Medium (50-150 MB) | Low (20-50 MB) |
 | **Startup Time** | Slow | Medium | Fast |
-| **UI Ecosystem** | Massive (React, Vue, etc.) | Massive (React, Vue, etc.) | Tiny (3 widgets) |
-| **CSS Styling** | ✅ Full control | ✅ Full control | ❌ Limited |
+| **UI Ecosystem** | Massive (React, Vue, etc.) | Massive (React, Vue, etc.) | Growing (17+ widgets) |
+| **CSS Styling** | ✅ Full control | ✅ Full control | ⚠️ CSS-like system |
 | **Third-Party Libraries** | Thousands | Thousands | None |
 | **Reuse Web Code** | ✅ Yes | ✅ Yes | ❌ No |
 | **Backend Language** | JavaScript/Node | Rust | Go |
