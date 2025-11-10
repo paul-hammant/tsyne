@@ -950,80 +950,69 @@ async function main() {
 main();
 ```
 
-**Create a server (Node.js example):**
+**Create a server (Node.js filesystem-based example):**
 ```javascript
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 
-const pages = {
-  '/': `
-    const { vbox, label, button } = jyne;
+const PAGES_DIR = path.join(__dirname, 'pages');
 
-    jyne.window({ title: 'Home' }, (win) => {
-      win.setContent(() => {
-        vbox(() => {
-          label('Welcome to Jyne Browser!');
-          label('');
-          label('This page was loaded from: ' + browserContext.currentUrl);
-          label('');
-
-          button('Go to About', () => {
-            browserContext.changePage('http://localhost:3000/about');
-          });
-        });
-      });
-
-      win.show();
-    });
-  `,
-
-  '/about': `
-    const { vbox, label, button } = jyne;
-
-    jyne.window({ title: 'About' }, (win) => {
-      win.setContent(() => {
-        vbox(() => {
-          label('About Page');
-          label('');
-          label('Server-side generated Jyne page');
-          label('');
-
-          button('Back', () => {
-            browserContext.back();
-          });
-        });
-      });
-
-      win.show();
-    });
-  `
-};
+// Map URL to filesystem path (/ → pages/index.ts, /about → pages/about.ts)
+function urlToFilePath(url) {
+  const cleanUrl = url.split('?')[0].split('#')[0].replace(/^\//, '');
+  const filePath = cleanUrl === '' ? 'index.ts' : cleanUrl + '.ts';
+  return path.join(PAGES_DIR, filePath);
+}
 
 http.createServer((req, res) => {
-  const pageCode = pages[req.url];
+  const filePath = urlToFilePath(req.url);
 
-  if (pageCode) {
-    res.writeHead(200, { 'Content-Type': 'text/typescript' });
-    res.end(pageCode);
-  } else {
-    res.writeHead(404, { 'Content-Type': 'text/typescript' });
-    res.end(`
-      const { vbox, label, button } = jyne;
-
-      jyne.window({ title: '404' }, (win) => {
-        win.setContent(() => {
-          vbox(() => {
-            label('404 - Page Not Found');
-            label('');
-            label('URL: ' + browserContext.currentUrl);
-            label('');
-            button('Home', () => browserContext.changePage('http://localhost:3000/'));
-          });
-        });
-        win.show();
-      });
-    `);
-  }
+  fs.readFile(filePath, 'utf8', (err, data) => {
+    if (err) {
+      res.writeHead(404, { 'Content-Type': 'text/typescript' });
+      res.end(fs.readFileSync(path.join(PAGES_DIR, '404.ts'), 'utf8'));
+    } else {
+      res.writeHead(200, { 'Content-Type': 'text/typescript' });
+      res.end(data);
+    }
+  });
 }).listen(3000);
+```
+
+**Example page** (`pages/index.ts`):
+```typescript
+// Home Page - TypeScript content for Jyne Browser
+const { vbox, label, button } = jyne;
+
+vbox(() => {
+  label('Welcome to Jyne Browser!');
+  label('');
+  label('Current URL: ' + browserContext.currentUrl);
+  label('');
+
+  button('Go to About', () => {
+    browserContext.changePage('/about');
+  });
+});
+```
+
+**Another page** (`pages/about.ts`):
+```typescript
+// About Page
+const { vbox, label, button, separator } = jyne;
+
+vbox(() => {
+  label('About Jyne Browser');
+  separator();
+  label('');
+  label('Pages are TypeScript code served from the server.');
+  label('');
+
+  button('Back', () => {
+    browserContext.back();
+  });
+});
 ```
 
 ### Browser API
@@ -1081,46 +1070,40 @@ Pages also receive a `jyne` object with all Jyne API functions.
 1. **`browserContext`** - Navigation and browser functions
 2. **`jyne`** - All Jyne API functions (window, vbox, label, button, etc.)
 
-**Example page:**
+**Example page** (`pages/contact.ts`):
 ```typescript
-// This code is served from the web server
+// Contact Page - TypeScript content for Jyne Browser
 const { vbox, hbox, label, button, entry } = jyne;
 
-jyne.window({ title: 'Contact Form' }, (win) => {
-  let nameEntry;
-  let emailEntry;
+let nameEntry;
+let emailEntry;
 
-  win.setContent(() => {
-    vbox(() => {
-      label('Contact Us');
-      label('');
+vbox(() => {
+  label('Contact Us');
+  label('');
 
-      label('Name:');
-      nameEntry = entry('Your name');
-      label('');
+  label('Name:');
+  nameEntry = entry('Your name');
+  label('');
 
-      label('Email:');
-      emailEntry = entry('Your email');
-      label('');
+  label('Email:');
+  emailEntry = entry('your@email.com');
+  label('');
 
-      hbox(() => {
-        button('Submit', async () => {
-          const name = await nameEntry.getText();
-          const email = await emailEntry.getText();
-          console.log('Submitted:', name, email);
+  hbox(() => {
+    button('Submit', async () => {
+      const name = await nameEntry.getText();
+      const email = await emailEntry.getText();
+      console.log('Submitted:', name, email);
 
-          // Navigate to thank you page
-          browserContext.changePage('http://localhost:3000/thanks');
-        });
+      // Navigate to thank you page
+      browserContext.changePage('/thanks');
+    });
 
-        button('Cancel', () => {
-          browserContext.back();
-        });
-      });
+    button('Cancel', () => {
+      browserContext.back();
     });
   });
-
-  win.show();
 });
 ```
 
@@ -1136,9 +1119,34 @@ The browser supports standard HTTP features:
 - **Content-Type** - Pages should be served as `text/typescript` or `text/plain`
 - **Timeouts** - 10 second timeout for requests
 
+### Page File Structure
+
+Pages are stored as `.ts` files with URL mapping:
+
+```
+pages/
+├── index.ts          # / → Home page
+├── about.ts          # /about → About page
+├── contact.ts        # /contact → Contact form
+├── form.ts           # /form → Form demo
+├── thanks.ts         # /thanks → Thank you page
+└── 404.ts            # (not found) → Error page
+```
+
+For nested URLs, use directories:
+```
+pages/
+├── products/
+│   ├── index.ts      # /products → Products listing
+│   └── detail.ts     # /products/detail → Product detail
+└── admin/
+    ├── index.ts      # /admin → Admin dashboard
+    └── users.ts      # /admin/users → User management
+```
+
 ### Server Implementation
 
-Servers can be implemented in any language. The only requirement is to serve TypeScript code that uses the Jyne API.
+Servers can be implemented in any language. The only requirement is to serve TypeScript code that uses the Jyne API from `.ts` files.
 
 **Node.js/Express:**
 ```javascript
@@ -1196,13 +1204,19 @@ History is maintained automatically with back/forward support.
 - **`examples/jynebrowser.ts`** - Jyne Browser executable
 
 **Sample Server:**
-- **`examples/server.js`** - Node.js HTTP server serving multiple Jyne TypeScript pages
-  - Home page with navigation
-  - About page with information
-  - Contact form with input fields
-  - Form demo with various widgets
-  - Thank you page
-  - Custom 404 error page
+- **`examples/server.js`** - Filesystem-based Node.js HTTP server
+  - Reads `.ts` files from `pages/` directory
+  - Maps URLs to files (/ → index.ts, /about → about.ts)
+  - Serves TypeScript code with proper Content-Type
+  - Custom 404 handling with 404.ts
+
+**Sample Pages:**
+- **`examples/pages/index.ts`** - Home page with navigation
+- **`examples/pages/about.ts`** - About page with information
+- **`examples/pages/contact.ts`** - Contact form with input fields
+- **`examples/pages/form.ts`** - Form demo with various widgets
+- **`examples/pages/thanks.ts`** - Thank you confirmation page
+- **`examples/pages/404.ts`** - Custom 404 error page
 
 **Run the examples:**
 ```bash

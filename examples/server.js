@@ -1,308 +1,169 @@
 /**
- * Sample Jyne Page Server
+ * Jyne Page Server - Filesystem-based server for Jyne TypeScript pages
  *
- * A simple HTTP server that serves Jyne pages as TypeScript code.
- * This demonstrates how any web framework (Express, Spring, Sinatra, Flask, etc.)
- * can serve Jyne pages dynamically.
+ * This server demonstrates serving Jyne pages from .ts files on the filesystem.
+ * Pages are TypeScript code that use the Jyne API to build UI content.
  *
- * Run: node examples/server.js
+ * URL Mapping:
+ *   /           → pages/index.ts
+ *   /about      → pages/about.ts
+ *   /contact    → pages/contact.ts
+ *   /foo        → pages/foo.ts
+ *   /foo/bar    → pages/foo/bar.ts (or pages/foo/bar/index.ts)
+ *   (not found) → pages/404.ts
+ *
+ * Usage:
+ *   node examples/server.js
+ *
+ * Then in another terminal:
+ *   node examples/jynebrowser.js http://localhost:3000/
  */
 
 const http = require('http');
+const fs = require('fs');
+const path = require('path');
 
 const PORT = 3000;
+const PAGES_DIR = path.join(__dirname, 'pages');
 
-// Sample Jyne pages as TypeScript code
-const pages = {
-  '/': `
-    // Home page
-    const { vbox, hbox, label, button, separator } = jyne;
+/**
+ * Map URL to filesystem path
+ */
+function urlToFilePath(url) {
+  // Remove query string and hash
+  const cleanUrl = url.split('?')[0].split('#')[0];
 
-    jyne.window({ title: 'Home' }, (win) => {
-      win.setContent(() => {
-        vbox(() => {
-          label('Welcome to Jyne Browser!');
-          label('');
-          label('This page was loaded from: ' + browserContext.currentUrl);
-          label('');
+  // Remove leading slash
+  let filePath = cleanUrl.replace(/^\//, '');
 
-          separator();
-          label('');
+  // Default to index.ts for root
+  if (filePath === '') {
+    filePath = 'index.ts';
+  } else if (!filePath.endsWith('.ts')) {
+    // Try exact match first (e.g., /about → about.ts)
+    const exactMatch = filePath + '.ts';
+    const exactPath = path.join(PAGES_DIR, exactMatch);
 
-          label('Navigation:');
-          hbox(() => {
-            button('Go to About', () => {
-              browserContext.changePage('http://localhost:3000/about');
-            });
+    if (fs.existsSync(exactPath)) {
+      return exactPath;
+    }
 
-            button('Go to Contact', () => {
-              browserContext.changePage('http://localhost:3000/contact');
-            });
+    // Try directory index (e.g., /foo → foo/index.ts)
+    const indexMatch = path.join(filePath, 'index.ts');
+    const indexPath = path.join(PAGES_DIR, indexMatch);
 
-            button('Go to Form', () => {
-              browserContext.changePage('http://localhost:3000/form');
-            });
-          });
+    if (fs.existsSync(indexPath)) {
+      return indexPath;
+    }
 
-          label('');
-          separator();
-          label('');
+    // Default to .ts extension
+    filePath = exactMatch;
+  }
 
-          label('Features:');
-          label('  • Pages loaded dynamically from server');
-          label('  • Back/Forward navigation');
-          label('  • Standard HTTP (GET, redirects, errors)');
-          label('  • Server can be any language/framework');
-          label('  • Fully declarative Jyne TypeScript');
-        });
-      });
+  return path.join(PAGES_DIR, filePath);
+}
 
-      win.show();
+/**
+ * Serve a Jyne page
+ */
+function servePage(filePath, res) {
+  fs.readFile(filePath, 'utf8', (err, data) => {
+    if (err) {
+      console.error('Error reading file:', filePath, err);
+      serve404(res);
+      return;
+    }
+
+    res.writeHead(200, {
+      'Content-Type': 'text/typescript',
+      'Cache-Control': 'no-cache'
     });
-  `,
+    res.end(data);
+  });
+}
 
-  '/about': `
-    // About page
-    const { vbox, hbox, label, button, separator, card } = jyne;
+/**
+ * Serve 404 error page
+ */
+function serve404(res) {
+  const notFoundPath = path.join(PAGES_DIR, '404.ts');
 
-    jyne.window({ title: 'About' }, (win) => {
-      win.setContent(() => {
-        vbox(() => {
-          label('About Jyne Browser');
-          label('');
+  fs.readFile(notFoundPath, 'utf8', (err, data) => {
+    if (err) {
+      // Fallback if 404.ts doesn't exist
+      res.writeHead(404, { 'Content-Type': 'text/typescript' });
+      res.end(`
+const { vbox, label, button } = jyne;
 
-          card('Jyne Browser', 'Swiby-inspired browser for desktop apps', () => {
-            vbox(() => {
-              label('The Jyne Browser loads pages from web servers,');
-              label('similar to how web browsers load HTML.');
-              label('');
-              label('Pages are written in TypeScript using the Jyne API.');
-              label('Servers can be implemented in any language:');
-              label('  • Node.js / Express');
-              label('  • Java / Spring');
-              label('  • Ruby / Sinatra');
-              label('  • Python / Flask');
-              label('  • Go / Gin');
-            });
-          });
+vbox(() => {
+  label('404 - Page Not Found');
+  label('');
+  label('URL: ' + browserContext.currentUrl);
+  label('');
+  button('Home', () => browserContext.changePage('/'));
+});
+      `);
+      return;
+    }
 
-          label('');
-
-          hbox(() => {
-            button('Back', () => {
-              browserContext.back();
-            });
-
-            button('Home', () => {
-              browserContext.changePage('http://localhost:3000/');
-            });
-          });
-        });
-      });
-
-      win.show();
+    res.writeHead(404, {
+      'Content-Type': 'text/typescript',
+      'Cache-Control': 'no-cache'
     });
-  `,
+    res.end(data);
+  });
+}
 
-  '/contact': `
-    // Contact page
-    const { vbox, hbox, label, button, separator, entry, form } = jyne;
-
-    jyne.window({ title: 'Contact' }, (win) => {
-      let nameField;
-      let emailField;
-      let messageField;
-
-      win.setContent(() => {
-        vbox(() => {
-          label('Contact Us');
-          label('');
-
-          nameField = entry('Your name');
-          emailField = entry('Your email');
-          messageField = entry('Your message');
-
-          label('');
-
-          form(
-            [
-              { label: 'Name', widget: nameField },
-              { label: 'Email', widget: emailField },
-              { label: 'Message', widget: messageField }
-            ],
-            async () => {
-              // Submit handler
-              const name = await nameField.getText();
-              const email = await emailField.getText();
-              const message = await messageField.getText();
-
-              console.log('Form submitted:', { name, email, message });
-
-              // In real app, would POST to server
-              // For demo, navigate to thank you page
-              browserContext.changePage('http://localhost:3000/thanks');
-            },
-            () => {
-              // Cancel handler
-              browserContext.back();
-            }
-          );
-
-          label('');
-          separator();
-          label('');
-
-          button('Back to Home', () => {
-            browserContext.changePage('http://localhost:3000/');
-          });
-        });
-      });
-
-      win.show();
-    });
-  `,
-
-  '/thanks': `
-    // Thank you page
-    const { vbox, label, button, center } = jyne;
-
-    jyne.window({ title: 'Thank You' }, (win) => {
-      win.setContent(() => {
-        center(() => {
-          vbox(() => {
-            label('Thank You!');
-            label('');
-            label('Your message has been received.');
-            label('We will get back to you soon.');
-            label('');
-            label('');
-
-            button('Back to Home', () => {
-              browserContext.changePage('http://localhost:3000/');
-            });
-          });
-        });
-      });
-
-      win.show();
-    });
-  `,
-
-  '/form': `
-    // Form demo page
-    const { vbox, hbox, label, button, entry, checkbox, select, slider } = jyne;
-
-    jyne.window({ title: 'Form Demo' }, (win) => {
-      let usernameEntry;
-      let passwordEntry;
-      let rememberCheckbox;
-      let roleSelect;
-
-      win.setContent(() => {
-        vbox(() => {
-          label('Login Form Demo');
-          label('');
-
-          label('Username:');
-          usernameEntry = entry('Enter username');
-          label('');
-
-          label('Password:');
-          passwordEntry = entry('Enter password');
-          label('');
-
-          rememberCheckbox = checkbox('Remember me', (checked) => {
-            console.log('Remember me:', checked);
-          });
-
-          label('');
-          label('Role:');
-          roleSelect = select(['User', 'Admin', 'Guest'], (selected) => {
-            console.log('Role selected:', selected);
-          });
-
-          label('');
-          label('');
-
-          hbox(() => {
-            button('Login', async () => {
-              const username = await usernameEntry.getText();
-              const password = await passwordEntry.getText();
-              console.log('Login:', username, password);
-              browserContext.changePage('http://localhost:3000/thanks');
-            });
-
-            button('Cancel', () => {
-              browserContext.back();
-            });
-          });
-
-          label('');
-          label('');
-
-          button('Back to Home', () => {
-            browserContext.changePage('http://localhost:3000/');
-          });
-        });
-      });
-
-      win.show();
-    });
-  `
-};
-
-// Create HTTP server
+/**
+ * Create and start HTTP server
+ */
 const server = http.createServer((req, res) => {
-  console.log(\`Request: \${req.method} \${req.url}\`);
+  console.log(`${new Date().toISOString()} - ${req.method} ${req.url}`);
 
   // Only handle GET requests
   if (req.method !== 'GET') {
-    res.writeHead(405, { 'Content-Type': 'text/plain' });
+    res.writeHead(405, { 'Allow': 'GET' });
     res.end('Method Not Allowed');
     return;
   }
 
-  // Get the page code
-  const pageCode = pages[req.url];
+  // Map URL to file path
+  const filePath = urlToFilePath(req.url);
+  console.log(`  → ${path.relative(PAGES_DIR, filePath)}`);
 
-  if (pageCode) {
-    // Return the Jyne page as TypeScript
-    res.writeHead(200, { 'Content-Type': 'text/typescript' });
-    res.end(pageCode);
-  } else {
-    // 404 - page not found
-    res.writeHead(404, { 'Content-Type': 'text/typescript' });
-    res.end(\`
-      const { vbox, label, button } = jyne;
+  // Check if file exists
+  fs.access(filePath, fs.constants.R_OK, (err) => {
+    if (err) {
+      console.log('  → File not found, serving 404');
+      serve404(res);
+      return;
+    }
 
-      jyne.window({ title: '404 Not Found' }, (win) => {
-        win.setContent(() => {
-          vbox(() => {
-            label('404 - Page Not Found');
-            label('');
-            label('The requested page does not exist: ' + browserContext.currentUrl);
-            label('');
-
-            button('Go Home', () => {
-              browserContext.changePage('http://localhost:3000/');
-            });
-          });
-        });
-
-        win.show();
-      });
-    \`);
-  }
+    // Serve the page
+    servePage(filePath, res);
+  });
 });
 
 server.listen(PORT, () => {
-  console.log(\`Jyne Page Server running at http://localhost:\${PORT}/\`);
-  console.log('Available pages:');
-  console.log('  http://localhost:3000/');
-  console.log('  http://localhost:3000/about');
-  console.log('  http://localhost:3000/contact');
-  console.log('  http://localhost:3000/form');
-  console.log('  http://localhost:3000/thanks');
+  console.log('╔════════════════════════════════════════════════════════╗');
+  console.log('║                                                        ║');
+  console.log('║         Jyne Page Server - Serving TypeScript Pages   ║');
+  console.log('║                                                        ║');
+  console.log('╚════════════════════════════════════════════════════════╝');
   console.log('');
-  console.log('Start the browser with: node examples/browser.js');
+  console.log(`Server running at http://localhost:${PORT}/`);
+  console.log(`Pages directory: ${PAGES_DIR}`);
+  console.log('');
+  console.log('Available pages:');
+  console.log('  http://localhost:3000/         → pages/index.ts');
+  console.log('  http://localhost:3000/about    → pages/about.ts');
+  console.log('  http://localhost:3000/contact  → pages/contact.ts');
+  console.log('  http://localhost:3000/form     → pages/form.ts');
+  console.log('  http://localhost:3000/thanks   → pages/thanks.ts');
+  console.log('');
+  console.log('To browse these pages:');
+  console.log('  node examples/jynebrowser.js http://localhost:3000/');
+  console.log('');
+  console.log('Press Ctrl+C to stop the server');
+  console.log('');
 });
