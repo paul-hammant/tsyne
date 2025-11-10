@@ -516,3 +516,67 @@ export class Toolbar {
     ctx.addToCurrentContainer(this.id);
   }
 }
+
+/**
+ * Table widget
+ */
+export class Table {
+  private ctx: Context;
+  public id: string;
+
+  constructor(ctx: Context, headers: string[], data: string[][]) {
+    this.ctx = ctx;
+    this.id = ctx.generateId('table');
+
+    ctx.bridge.send('createTable', {
+      id: this.id,
+      headers,
+      data
+    });
+
+    ctx.addToCurrentContainer(this.id);
+  }
+
+  async updateData(data: string[][]): Promise<void> {
+    await this.ctx.bridge.send('updateTableData', {
+      id: this.id,
+      data
+    });
+  }
+}
+
+/**
+ * List widget
+ */
+export class List {
+  private ctx: Context;
+  public id: string;
+
+  constructor(ctx: Context, items: string[], onSelected?: (index: number, item: string) => void) {
+    this.ctx = ctx;
+    this.id = ctx.generateId('list');
+
+    const payload: any = {
+      id: this.id,
+      items
+    };
+
+    if (onSelected) {
+      const callbackId = ctx.generateId('callback');
+      payload.callbackId = callbackId;
+      ctx.bridge.registerEventHandler(callbackId, (data: any) => {
+        onSelected(data.index, data.item);
+      });
+    }
+
+    ctx.bridge.send('createList', payload);
+    ctx.addToCurrentContainer(this.id);
+  }
+
+  async updateItems(items: string[]): Promise<void> {
+    await this.ctx.bridge.send('updateListData', {
+      id: this.id,
+      items
+    });
+  }
+}

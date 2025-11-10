@@ -335,6 +335,20 @@ Window methods:
   - `items`: Array of toolbar items with type ('action' | 'separator' | 'spacer'), label, and onAction callback
   - Example: `toolbar([{type: 'action', label: 'Save', onAction: () => save()}, {type: 'separator'}, {type: 'spacer'}])`
 
+#### Data Display Widgets
+
+- **`table(headers, data)`**: Create a table with headers and data rows
+  - `headers`: Array of column header strings
+  - `data`: 2D array of string data (rows x columns)
+  - Methods: `updateData(data: string[][])` - Update table contents
+  - Example: `table(['Name', 'Age', 'City'], [['John', '30', 'NYC'], ['Jane', '25', 'LA']])`
+
+- **`list(items, onSelected?)`**: Create a scrollable list
+  - `items`: Array of string items to display
+  - `onSelected`: Callback when an item is selected (optional) - receives (index: number, item: string)
+  - Methods: `updateItems(items: string[])` - Update list contents
+  - Example: `list(['Item 1', 'Item 2', 'Item 3'], (index, item) => console.log(item))`
+
 ### Dialogs
 
 Jyne provides common dialog methods on the Window class for user interactions:
@@ -700,6 +714,8 @@ Check out the `examples/` directory:
 - `grid.ts` - Grid layout calculator example
 - `split.ts` - Resizable horizontal and vertical split containers
 - `tabs.ts` - Tabbed interface for organizing content
+- `table.ts` - Data tables with headers and sortable rows
+- `list.ts` - Scrollable lists with selection callbacks
 
 **Dialog Examples:**
 - `dialogs-info.ts` - Information and error dialogs
@@ -738,6 +754,8 @@ node examples/dialogs-file.js
 node examples/window-sizing.js
 node examples/menu-bar.js
 node examples/toolbar.js
+node examples/table.js
+node examples/list.js
 ```
 
 ### Test Applications - Two Architectural Patterns

@@ -1,6 +1,6 @@
 import { App, AppOptions } from './app';
 import { Context } from './context';
-import { Button, Label, Entry, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, Split, Tabs, Toolbar } from './widgets';
+import { Button, Label, Entry, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, Split, Tabs, Toolbar, Table, List } from './widgets';
 import { Window, WindowOptions } from './window';
 
 // Global context for the declarative API
@@ -218,8 +218,28 @@ export function toolbar(
   return new Toolbar(globalContext, toolbarItems);
 }
 
+/**
+ * Create a table
+ */
+export function table(headers: string[], data: string[][]): Table {
+  if (!globalContext) {
+    throw new Error('table() must be called within an app context');
+  }
+  return new Table(globalContext, headers, data);
+}
+
+/**
+ * Create a list
+ */
+export function list(items: string[], onSelected?: (index: number, item: string) => void): List {
+  if (!globalContext) {
+    throw new Error('list() must be called within an app context');
+  }
+  return new List(globalContext, items, onSelected);
+}
+
 // Export classes for advanced usage
-export { App, Window, Button, Label, Entry, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, Split, Tabs, Toolbar };
+export { App, Window, Button, Label, Entry, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, Split, Tabs, Toolbar, Table, List };
 export type { AppOptions, WindowOptions };
 
 // Export state management utilities

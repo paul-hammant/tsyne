@@ -47,7 +47,9 @@ type Bridge struct {
 	testMode   bool              // true for headless testing
 	mu         sync.RWMutex
 	writer     *json.Encoder
-	widgetMeta map[string]WidgetMetadata // metadata for testing
+	widgetMeta map[string]WidgetMetadata      // metadata for testing
+	tableData  map[string][][]string          // table ID -> data
+	listData   map[string][]string            // list ID -> data
 }
 
 // WidgetMetadata stores metadata about widgets for testing
@@ -72,6 +74,8 @@ func NewBridge(testMode bool) *Bridge {
 		testMode:   testMode,
 		writer:     json.NewEncoder(os.Stdout),
 		widgetMeta: make(map[string]WidgetMetadata),
+		tableData:  make(map[string][][]string),
+		listData:   make(map[string][]string),
 	}
 }
 
@@ -171,6 +175,14 @@ func (b *Bridge) handleMessage(msg Message) {
 		b.handleSetMainMenu(msg)
 	case "createToolbar":
 		b.handleCreateToolbar(msg)
+	case "createTable":
+		b.handleCreateTable(msg)
+	case "createList":
+		b.handleCreateList(msg)
+	case "updateTableData":
+		b.handleUpdateTableData(msg)
+	case "updateListData":
+		b.handleUpdateListData(msg)
 	case "quit":
 		b.handleQuit(msg)
 	// Testing methods
@@ -1514,6 +1526,241 @@ func (b *Bridge) handleCreateToolbar(msg Message) {
 		ID:      msg.ID,
 		Success: true,
 	})
+}
+
+func (b *Bridge) handleCreateTable(msg Message) {
+	id := msg.Payload["id"].(string)
+	headersInterface := msg.Payload["headers"].([]interface{})
+	dataInterface := msg.Payload["data"].([]interface{})
+
+	// Convert headers
+	headers := make([]string, len(headersInterface))
+	for i, h := range headersInterface {
+		headers[i] = h.(string)
+	}
+
+	// Convert data
+	var data [][]string
+	for _, rowInterface := range dataInterface {
+		rowData := rowInterface.([]interface{})
+		row := make([]string, len(rowData))
+		for j, cell := range rowData {
+			row[j] = cell.(string)
+		}
+		data = append(data, row)
+	}
+
+	// Store data
+	b.mu.Lock()
+	b.tableData[id] = data
+	b.mu.Unlock()
+
+	// Create table widget
+	table := widget.NewTable(
+		func() (int, int) {
+			b.mu.RLock()
+			defer b.mu.RUnlock()
+			tableData := b.tableData[id]
+			if len(tableData) == 0 {
+				return 1, len(headers) // Just header row
+			}
+			return len(tableData) + 1, len(headers) // +1 for header
+		},
+		func() fyne.CanvasObject {
+			return widget.NewLabel("")
+		},
+		func(cell widget.TableCellID, obj fyne.CanvasObject) {
+			label := obj.(*widget.Label)
+			b.mu.RLock()
+			tableData := b.tableData[id]
+			b.mu.RUnlock()
+
+			if cell.Row == 0 {
+				// Header row
+				if cell.Col < len(headers) {
+					label.SetText(headers[cell.Col])
+					label.TextStyle = fyne.TextStyle{Bold: true}
+				}
+			} else {
+				// Data row
+				rowIdx := cell.Row - 1
+				if rowIdx < len(tableData) && cell.Col < len(tableData[rowIdx]) {
+					label.SetText(tableData[rowIdx][cell.Col])
+					label.TextStyle = fyne.TextStyle{}
+				}
+			}
+		},
+	)
+
+	b.mu.Lock()
+	b.widgets[id] = table
+	b.widgetMeta[id] = WidgetMetadata{
+		Type: "table",
+		Text: "",
+	}
+	b.mu.Unlock()
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+	})
+}
+
+func (b *Bridge) handleUpdateTableData(msg Message) {
+	id := msg.Payload["id"].(string)
+	dataInterface := msg.Payload["data"].([]interface{})
+
+	// Convert data
+	var data [][]string
+	for _, rowInterface := range dataInterface {
+		rowData := rowInterface.([]interface{})
+		row := make([]string, len(rowData))
+		for j, cell := range rowData {
+			row[j] = cell.(string)
+		}
+		data = append(data, row)
+	}
+
+	b.mu.Lock()
+	b.tableData[id] = data
+	widget, exists := b.widgets[id]
+	b.mu.Unlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Table not found",
+		})
+		return
+	}
+
+	if table, ok := widget.(*widget.Table); ok {
+		table.Refresh()
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: true,
+		})
+	} else {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget is not a table",
+		})
+	}
+}
+
+func (b *Bridge) handleCreateList(msg Message) {
+	id := msg.Payload["id"].(string)
+	itemsInterface := msg.Payload["items"].([]interface{})
+
+	// Convert items
+	items := make([]string, len(itemsInterface))
+	for i, item := range itemsInterface {
+		items[i] = item.(string)
+	}
+
+	// Store data
+	b.mu.Lock()
+	b.listData[id] = items
+	b.mu.Unlock()
+
+	// Create list widget
+	list := widget.NewList(
+		func() int {
+			b.mu.RLock()
+			defer b.mu.RUnlock()
+			return len(b.listData[id])
+		},
+		func() fyne.CanvasObject {
+			return widget.NewLabel("")
+		},
+		func(itemID widget.ListItemID, obj fyne.CanvasObject) {
+			label := obj.(*widget.Label)
+			b.mu.RLock()
+			listData := b.listData[id]
+			b.mu.RUnlock()
+
+			if itemID < len(listData) {
+				label.SetText(listData[itemID])
+			}
+		},
+	)
+
+	// Handle selection callback if provided
+	if callbackID, ok := msg.Payload["callbackId"].(string); ok {
+		list.OnSelected = func(itemID widget.ListItemID) {
+			b.mu.RLock()
+			listData := b.listData[id]
+			b.mu.RUnlock()
+
+			var selectedItem string
+			if itemID < len(listData) {
+				selectedItem = listData[itemID]
+			}
+
+			b.sendEvent(Event{
+				Type: "callback",
+				Data: map[string]interface{}{
+					"callbackId": callbackID,
+					"index":      itemID,
+					"item":       selectedItem,
+				},
+			})
+		}
+	}
+
+	b.mu.Lock()
+	b.widgets[id] = list
+	b.widgetMeta[id] = WidgetMetadata{
+		Type: "list",
+		Text: "",
+	}
+	b.mu.Unlock()
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+	})
+}
+
+func (b *Bridge) handleUpdateListData(msg Message) {
+	id := msg.Payload["id"].(string)
+	itemsInterface := msg.Payload["items"].([]interface{})
+
+	// Convert items
+	items := make([]string, len(itemsInterface))
+	for i, item := range itemsInterface {
+		items[i] = item.(string)
+	}
+
+	b.mu.Lock()
+	b.listData[id] = items
+	widget, exists := b.widgets[id]
+	b.mu.Unlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "List not found",
+		})
+		return
+	}
+
+	if list, ok := widget.(*widget.List); ok {
+		list.Refresh()
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: true,
+		})
+	} else {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget is not a list",
+		})
+	}
 }
 
 func (b *Bridge) handleQuit(msg Message) {
