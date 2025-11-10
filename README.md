@@ -907,6 +907,325 @@ node examples/form-unstyled.js   # Without styles
 node examples/form-styled.js     # With styles
 ```
 
+## Browser System
+
+Jyne includes a Swiby-inspired browser system that loads Jyne TypeScript pages from web servers dynamically, similar to how Mosaic, Firefox, or Chrome load HTML pages. This enables server-side page generation from any language or framework (Spring, Sinatra, Flask, Express, etc.).
+
+### Why a Browser?
+
+Unlike HTML+JavaScript which mixes declarative markup with imperative scripts, Jyne pages are seamless declarative TypeScript. The browser:
+
+- **Loads pages from HTTP/HTTPS servers** - Standard GET requests with 200, 302, 404 support
+- **Provides navigation functions** - `back()`, `forward()`, `changePage(url)`
+- **Server-agnostic** - Any language can serve Jyne pages (Node.js, Java, Ruby, Python, Go)
+- **Fully declarative** - Pages are pure TypeScript using the Jyne API
+
+### Quick Start
+
+**Create a browser:**
+```typescript
+import { createBrowser } from 'jyne';
+
+async function main() {
+  const browser = await createBrowser('http://localhost:3000/', {
+    title: 'My Jyne Browser',
+    width: 900,
+    height: 700
+  });
+
+  await browser.run();
+}
+
+main();
+```
+
+**Create a server (Node.js example):**
+```javascript
+const http = require('http');
+
+const pages = {
+  '/': `
+    const { vbox, label, button } = jyne;
+
+    jyne.window({ title: 'Home' }, (win) => {
+      win.setContent(() => {
+        vbox(() => {
+          label('Welcome to Jyne Browser!');
+          label('');
+          label('This page was loaded from: ' + browserContext.currentUrl);
+          label('');
+
+          button('Go to About', () => {
+            browserContext.changePage('http://localhost:3000/about');
+          });
+        });
+      });
+
+      win.show();
+    });
+  `,
+
+  '/about': `
+    const { vbox, label, button } = jyne;
+
+    jyne.window({ title: 'About' }, (win) => {
+      win.setContent(() => {
+        vbox(() => {
+          label('About Page');
+          label('');
+          label('Server-side generated Jyne page');
+          label('');
+
+          button('Back', () => {
+            browserContext.back();
+          });
+        });
+      });
+
+      win.show();
+    });
+  `
+};
+
+http.createServer((req, res) => {
+  const pageCode = pages[req.url];
+
+  if (pageCode) {
+    res.writeHead(200, { 'Content-Type': 'text/typescript' });
+    res.end(pageCode);
+  } else {
+    res.writeHead(404, { 'Content-Type': 'text/typescript' });
+    res.end(`
+      const { vbox, label, button } = jyne;
+
+      jyne.window({ title: '404' }, (win) => {
+        win.setContent(() => {
+          vbox(() => {
+            label('404 - Page Not Found');
+            label('');
+            label('URL: ' + browserContext.currentUrl);
+            label('');
+            button('Home', () => browserContext.changePage('http://localhost:3000/'));
+          });
+        });
+        win.show();
+      });
+    `);
+  }
+}).listen(3000);
+```
+
+### Browser API
+
+#### Browser Class
+
+**Constructor:**
+```typescript
+new Browser(options?: {
+  title?: string;
+  width?: number;
+  height?: number;
+})
+```
+
+**Methods:**
+- **`changePage(url: string): Promise<void>`** - Navigate to a URL and load the page
+- **`back(): Promise<void>`** - Navigate back in history
+- **`forward(): Promise<void>`** - Navigate forward in history
+- **`run(): Promise<void>`** - Start the browser application
+- **`getApp(): App`** - Get the underlying App instance
+
+**Factory Function:**
+```typescript
+createBrowser(
+  initialUrl?: string,
+  options?: {
+    title?: string;
+    width?: number;
+    height?: number;
+  }
+): Promise<Browser>
+```
+
+#### BrowserContext
+
+Every loaded page receives a `browserContext` object with navigation functions:
+
+```typescript
+interface BrowserContext {
+  back: () => Promise<void>;
+  forward: () => Promise<void>;
+  changePage: (url: string) => Promise<void>;
+  currentUrl: string;
+  browser: Browser;
+}
+```
+
+Pages also receive a `jyne` object with all Jyne API functions.
+
+### Page Format
+
+Jyne pages are TypeScript code that execute in the browser context. They receive two parameters:
+
+1. **`browserContext`** - Navigation and browser functions
+2. **`jyne`** - All Jyne API functions (window, vbox, label, button, etc.)
+
+**Example page:**
+```typescript
+// This code is served from the web server
+const { vbox, hbox, label, button, entry } = jyne;
+
+jyne.window({ title: 'Contact Form' }, (win) => {
+  let nameEntry;
+  let emailEntry;
+
+  win.setContent(() => {
+    vbox(() => {
+      label('Contact Us');
+      label('');
+
+      label('Name:');
+      nameEntry = entry('Your name');
+      label('');
+
+      label('Email:');
+      emailEntry = entry('Your email');
+      label('');
+
+      hbox(() => {
+        button('Submit', async () => {
+          const name = await nameEntry.getText();
+          const email = await emailEntry.getText();
+          console.log('Submitted:', name, email);
+
+          // Navigate to thank you page
+          browserContext.changePage('http://localhost:3000/thanks');
+        });
+
+        button('Cancel', () => {
+          browserContext.back();
+        });
+      });
+    });
+  });
+
+  win.show();
+});
+```
+
+### HTTP Support
+
+The browser supports standard HTTP features:
+
+- **GET requests** - Only GET is used (pages are code, not data)
+- **Status codes:**
+  - `200` - Success, page is rendered
+  - `301/302` - Redirects are followed automatically
+  - `404` - Can serve custom 404 error pages
+- **Content-Type** - Pages should be served as `text/typescript` or `text/plain`
+- **Timeouts** - 10 second timeout for requests
+
+### Server Implementation
+
+Servers can be implemented in any language. The only requirement is to serve TypeScript code that uses the Jyne API.
+
+**Node.js/Express:**
+```javascript
+app.get('/page', (req, res) => {
+  res.type('text/typescript');
+  res.send('const { vbox, label } = jyne; ...');
+});
+```
+
+**Python/Flask:**
+```python
+@app.route('/page')
+def page():
+    return '''
+        const { vbox, label } = jyne;
+        // ... page code
+    ''', 200, {'Content-Type': 'text/typescript'}
+```
+
+**Ruby/Sinatra:**
+```ruby
+get '/page' do
+  content_type 'text/typescript'
+  <<~JYNE
+    const { vbox, label } = jyne;
+    // ... page code
+  JYNE
+end
+```
+
+**Java/Spring:**
+```java
+@GetMapping("/page")
+public ResponseEntity<String> page() {
+    return ResponseEntity.ok()
+        .contentType(MediaType.valueOf("text/typescript"))
+        .body("const { vbox, label } = jyne; ...");
+}
+```
+
+### Navigation Flow
+
+1. **Browser loads initial URL** via `createBrowser(url)`
+2. **Server returns TypeScript code** for the page
+3. **Browser executes code** with `browserContext` and `jyne` parameters
+4. **Page builds UI** using Jyne API
+5. **User clicks navigation** button calling `browserContext.changePage(url)`
+6. **Process repeats** for new page
+
+History is maintained automatically with back/forward support.
+
+### Examples
+
+**Browser Application:**
+- **`examples/browser.ts`** - Complete browser implementation
+
+**Sample Server:**
+- **`examples/server.js`** - Node.js HTTP server serving multiple Jyne pages
+  - Home page with navigation
+  - About page with information
+  - Contact form with input fields
+  - Form demo with various widgets
+  - Thank you page
+  - Custom 404 error page
+
+**Run the examples:**
+```bash
+npm run build
+
+# Terminal 1: Start the server
+node examples/server.js
+
+# Terminal 2: Start the browser
+node examples/browser.js
+```
+
+The browser will connect to `http://localhost:3000/` and load the home page. Click navigation buttons to explore the different pages served by the server.
+
+### Use Cases
+
+- **Desktop applications with remote pages** - Centrally managed UI served to desktop browsers
+- **Dynamic UIs** - Update pages server-side without redeploying desktop apps
+- **Multi-language backends** - Use your preferred server language (Java, Ruby, Python, etc.)
+- **Content management** - Serve different pages based on user permissions or data
+- **Progressive enhancement** - Start with static pages, add server logic later
+
+### Comparison to Web Browsers
+
+| Feature | Web Browsers (HTML) | Jyne Browser |
+|---------|-------------------|--------------|
+| **Content Format** | HTML + CSS + JS | TypeScript (Jyne API) |
+| **Declarative/Imperative** | Mixed (HTML declarative, JS imperative) | Seamless declarative TypeScript |
+| **Navigation** | `<a>` tags, `window.location` | `browserContext.changePage()` |
+| **Back/Forward** | Browser built-in | `browserContext.back/forward()` |
+| **Server Language** | Any (serves HTML) | Any (serves TypeScript) |
+| **Rendering** | Browser engine (Blink, Gecko) | Jyne/Fyne (native widgets) |
+| **Platform** | Web | Desktop (macOS, Windows, Linux) |
+
 ## State Management and Architectural Patterns
 
 Jyne provides powerful state management utilities and supports multiple architectural patterns (MVC, MVVM, MVP) for building scalable applications.
@@ -1153,6 +1472,10 @@ Check out the `examples/` directory:
 - `form-unstyled.ts` - Registration form without custom styling
 - `form-styled.ts` - Same form with Swiby-like stylesheet applied
 - `form-styles.ts` - Stylesheet module defining visual styles
+
+**Browser Examples:**
+- `browser.ts` - Jyne browser application that loads pages from web servers
+- `server.js` - Sample Node.js HTTP server serving multiple Jyne pages
 
 Run an example:
 
