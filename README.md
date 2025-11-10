@@ -1032,8 +1032,28 @@ new Browser(options?: {
 - **`changePage(url: string): Promise<void>`** - Navigate to a URL and load the page
 - **`back(): Promise<void>`** - Navigate back in history
 - **`forward(): Promise<void>`** - Navigate forward in history
+- **`reload(): Promise<void>`** - Reload current page
+- **`stop(): void`** - Stop loading current page
 - **`run(): Promise<void>`** - Start the browser application
 - **`getApp(): App`** - Get the underlying App instance
+
+**Browser Chrome:**
+The browser window includes:
+- **Address bar** - Entry widget showing current URL (editable)
+- **← Back button** - Navigate to previous page in history
+- **→ Forward button** - Navigate to next page in history
+- **⟳ Reload button** - Refresh current page
+- **✕ Stop button** - Cancel loading (visible only when loading)
+- **Go button** - Navigate to URL in address bar
+- **Loading indicator** - "Loading..." text (visible when loading)
+
+**Menu Bar:**
+Standard browser menus are provided:
+- **File** - Close Window
+- **View** - Reload, Stop, View Page Source
+- **History** - Back, Forward (disabled when not available)
+- **Help** - About Jyne Browser
+- **[Page Menus]** - Custom menus added by pages
 
 **Factory Function:**
 ```typescript
@@ -1056,10 +1076,45 @@ interface BrowserContext {
   back: () => Promise<void>;
   forward: () => Promise<void>;
   changePage: (url: string) => Promise<void>;
+  reload: () => Promise<void>;
+  stop: () => void;
+  addPageMenu: (menuLabel: string, items: PageMenuItem[]) => void;
   currentUrl: string;
+  isLoading: boolean;
   browser: Browser;
 }
 ```
+
+**Navigation functions:**
+- `back()` - Navigate to previous page
+- `forward()` - Navigate to next page
+- `changePage(url)` - Navigate to a new URL
+- `reload()` - Refresh current page
+- `stop()` - Stop loading
+
+**Page Menu API:**
+Pages can add custom menus to the browser menu bar:
+
+```typescript
+browserContext.addPageMenu('Tools', [
+  {
+    label: 'Say Hello',
+    onSelected: () => { console.log('Hello!'); }
+  },
+  {
+    label: 'Disabled Item',
+    onSelected: () => {},
+    disabled: true
+  },
+  {
+    label: 'Checked Item',
+    checked: true,
+    onSelected: () => {}
+  }
+]);
+```
+
+Custom menus appear in the menu bar and are removed when navigating away from the page.
 
 Pages also receive a `jyne` object with all Jyne API functions.
 
