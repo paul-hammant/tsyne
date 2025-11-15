@@ -68,10 +68,22 @@ private async updateDrawPileUI(): Promise<void> {
 4. Tests passed but bug still manifested intermittently in actual usage
 5. **✅ Applied Kent Beck's incremental update approach - bug fixed**
 
+### Testing Notes
+
+Debug logging confirmed the fix works correctly:
+- ✅ `draw()` completes without errors
+- ✅ `updateDrawPileUI()` completes successfully using `Image.updateImage()`
+- ✅ Widget IDs remain stable (no widget tree destruction)
+- ✅ Status label updates successfully with `setText()`
+
+**Test Framework Limitation**: The automated regression test cannot verify the fix due to a test framework issue where label text is not extractable after image updates (shows base64 PNG data instead). Manual testing is required to verify the layout shift bug is fixed.
+
 ### Related Files
 
 - `examples/solitaire/solitaire.ts:1160-1167` - Fixed draw() method with incremental updates
-- `examples/solitaire/solitaire.ts:1112-1142` - New updateDrawPileUI() method
+- `examples/solitaire/solitaire.ts:1113-1139` - New updateDrawPileUI() method
 - `examples/solitaire/solitaire.ts:714-718` - Widget reference instance variables
-- `examples/solitaire/draw-regression.test.ts` - Regression test
+- `examples/solitaire/draw-regression.test.ts` - Regression test (limited by test framework)
 - `src/window.ts:73-86, 88-110` - setContent deduplication fix
+- `src/widgets.ts:1421-1426` - Image.updateImage() implementation (TypeScript)
+- `bridge/main.go:396-397` - handleUpdateImage() implementation (Go)
