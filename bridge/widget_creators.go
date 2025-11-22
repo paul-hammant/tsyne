@@ -15,6 +15,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/storage"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -1651,6 +1652,70 @@ func (b *Bridge) handleCreateThemeOverride(msg Message) {
 		ID:      msg.ID,
 		Success: true,
 		Result:  map[string]interface{}{"widgetId": widgetID},
+	})
+}
+
+func (b *Bridge) handleCreateFileIcon(msg Message) {
+	widgetID := msg.Payload["id"].(string)
+	uri := msg.Payload["uri"].(string)
+
+	// Create a file URI from the path
+	fileURI := storage.NewFileURI(uri)
+
+	// Create the FileIcon widget
+	fileIcon := widget.NewFileIcon(fileURI)
+
+	b.mu.Lock()
+	b.widgets[widgetID] = fileIcon
+	b.widgetMeta[widgetID] = WidgetMetadata{Type: "fileicon", Text: uri}
+	b.mu.Unlock()
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
+		Result:  map[string]interface{}{"widgetId": widgetID},
+	})
+}
+
+func (b *Bridge) handleSetFileIconURI(msg Message) {
+	widgetID := msg.Payload["widgetId"].(string)
+	uri := msg.Payload["uri"].(string)
+
+	b.mu.RLock()
+	w, exists := b.widgets[widgetID]
+	b.mu.RUnlock()
+
+	if !exists {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget not found",
+		})
+		return
+	}
+
+	fileIcon, ok := w.(*widget.FileIcon)
+	if !ok {
+		b.sendResponse(Response{
+			ID:      msg.ID,
+			Success: false,
+			Error:   "Widget is not a FileIcon",
+		})
+		return
+	}
+
+	// Update the URI
+	fileURI := storage.NewFileURI(uri)
+	fileIcon.SetURI(fileURI)
+
+	// Update metadata
+	b.mu.Lock()
+	b.widgetMeta[widgetID] = WidgetMetadata{Type: "fileicon", Text: uri}
+	b.mu.Unlock()
+
+	b.sendResponse(Response{
+		ID:      msg.ID,
+		Success: true,
 	})
 }
 

@@ -204,6 +204,10 @@ func (b *Bridge) handleMessage(msg Message) {
 		b.handleCreateTable(msg)
 	case "createList":
 		b.handleCreateList(msg)
+	case "createFileIcon":
+		b.handleCreateFileIcon(msg)
+	case "setFileIconURI":
+		b.handleSetFileIconURI(msg)
 	case "updateTableData":
 		b.handleUpdateTableData(msg)
 	case "updateListData":

@@ -3172,3 +3172,31 @@ export class Navigation {
     });
   }
 }
+
+/**
+ * FileIcon widget - displays an icon representing the type of a file
+ * Uses Fyne's widget.FileIcon which shows appropriate icons for different file types
+ */
+export class FileIcon extends Widget {
+  constructor(ctx: Context, uri: string) {
+    const id = ctx.generateId('fileicon');
+    super(ctx, id);
+
+    ctx.bridge.send('createFileIcon', {
+      id,
+      uri
+    });
+    ctx.addToCurrentContainer(id);
+  }
+
+  /**
+   * Update the file URI displayed by this icon
+   * @param uri The new file path/URI to display
+   */
+  async setURI(uri: string): Promise<void> {
+    await this.ctx.bridge.send('setFileIconURI', {
+      widgetId: this.id,
+      uri
+    });
+  }
+}
