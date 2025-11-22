@@ -14,6 +14,7 @@ import (
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
+	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
 )
 
@@ -534,39 +535,6 @@ func (b *Bridge) handleCreateCenter(msg Message) {
 	b.mu.Lock()
 	b.widgets[widgetID] = centered
 	b.widgetMeta[widgetID] = WidgetMetadata{Type: "center", Text: ""}
-	b.childToParent[childID] = widgetID
-	b.mu.Unlock()
-
-	b.sendResponse(Response{
-		ID:      msg.ID,
-		Success: true,
-		Result:  map[string]interface{}{"widgetId": widgetID},
-	})
-}
-
-func (b *Bridge) handleCreateClip(msg Message) {
-	widgetID := msg.Payload["id"].(string)
-	childID := msg.Payload["childId"].(string)
-
-	b.mu.RLock()
-	child, exists := b.widgets[childID]
-	b.mu.RUnlock()
-
-	if !exists {
-		b.sendResponse(Response{
-			ID:      msg.ID,
-			Success: false,
-			Error:   "Child widget not found",
-		})
-		return
-	}
-
-	// NewClip creates a container that clips any content that extends beyond the bounds of its child
-	clipped := container.NewClip(child)
-
-	b.mu.Lock()
-	b.widgets[widgetID] = clipped
-	b.widgetMeta[widgetID] = WidgetMetadata{Type: "clip", Text: ""}
 	b.childToParent[childID] = widgetID
 	b.mu.Unlock()
 
@@ -1598,817 +1566,240 @@ func (b *Bridge) handleCreateList(msg Message) {
 	})
 }
 
-func (b *Bridge) handleCreateMenu(msg Message) {
-	widgetID := msg.Payload["id"].(string)
-	itemsInterface := msg.Payload["items"].([]interface{})
+// getThemeIcon returns the Fyne theme icon resource for a given icon name
+func getThemeIcon(iconName string) fyne.Resource {
+	switch iconName {
+	// Navigation & UI
+	case "NavigateBack":
+		return theme.NavigateBackIcon()
+	case "NavigateNext":
+		return theme.NavigateNextIcon()
+	case "Menu":
+		return theme.MenuIcon()
+	case "MenuExpand":
+		return theme.MenuExpandIcon()
+	case "MenuDropDown":
+		return theme.MenuDropDownIcon()
+	case "MenuDropUp":
+		return theme.MenuDropUpIcon()
+	case "MoveUp":
+		return theme.MoveUpIcon()
+	case "MoveDown":
+		return theme.MoveDownIcon()
+
+	// File & Folder
+	case "File":
+		return theme.FileIcon()
+	case "FileApplication":
+		return theme.FileApplicationIcon()
+	case "FileAudio":
+		return theme.FileAudioIcon()
+	case "FileImage":
+		return theme.FileImageIcon()
+	case "FileText":
+		return theme.FileTextIcon()
+	case "FileVideo":
+		return theme.FileVideoIcon()
+	case "Folder":
+		return theme.FolderIcon()
+	case "FolderNew":
+		return theme.FolderNewIcon()
+	case "FolderOpen":
+		return theme.FolderOpenIcon()
+
+	// Document
+	case "Document":
+		return theme.DocumentIcon()
+	case "DocumentCreate":
+		return theme.DocumentCreateIcon()
+	case "DocumentPrint":
+		return theme.DocumentPrintIcon()
+	case "DocumentSave":
+		return theme.DocumentSaveIcon()
+
+	// Media
+	case "MediaPlay":
+		return theme.MediaPlayIcon()
+	case "MediaPause":
+		return theme.MediaPauseIcon()
+	case "MediaStop":
+		return theme.MediaStopIcon()
+	case "MediaRecord":
+		return theme.MediaRecordIcon()
+	case "MediaReplay":
+		return theme.MediaReplayIcon()
+	case "MediaMusic":
+		return theme.MediaMusicIcon()
+	case "MediaPhoto":
+		return theme.MediaPhotoIcon()
+	case "MediaVideo":
+		return theme.MediaVideoIcon()
+	case "MediaFastForward":
+		return theme.MediaFastForwardIcon()
+	case "MediaFastRewind":
+		return theme.MediaFastRewindIcon()
+	case "MediaSkipNext":
+		return theme.MediaSkipNextIcon()
+	case "MediaSkipPrevious":
+		return theme.MediaSkipPreviousIcon()
+
+	// Content Actions
+	case "ContentAdd":
+		return theme.ContentAddIcon()
+	case "ContentRemove":
+		return theme.ContentRemoveIcon()
+	case "ContentCopy":
+		return theme.ContentCopyIcon()
+	case "ContentCut":
+		return theme.ContentCutIcon()
+	case "ContentPaste":
+		return theme.ContentPasteIcon()
+	case "ContentClear":
+		return theme.ContentClearIcon()
+	case "ContentUndo":
+		return theme.ContentUndoIcon()
+	case "ContentRedo":
+		return theme.ContentRedoIcon()
+
+	// Dialog & Status
+	case "Confirm":
+		return theme.ConfirmIcon()
+	case "Cancel":
+		return theme.CancelIcon()
+	case "Delete":
+		return theme.DeleteIcon()
+	case "Error":
+		return theme.ErrorIcon()
+	case "Warning":
+		return theme.WarningIcon()
+	case "Info":
+		return theme.InfoIcon()
+	case "Question":
+		return theme.QuestionIcon()
+
+	// Form Elements
+	case "CheckButton":
+		return theme.CheckButtonIcon()
+	case "CheckButtonChecked":
+		return theme.CheckButtonCheckedIcon()
+	case "RadioButton":
+		return theme.RadioButtonIcon()
+	case "RadioButtonChecked":
+		return theme.RadioButtonCheckedIcon()
+
+	// Miscellaneous
+	case "Home":
+		return theme.HomeIcon()
+	case "Settings":
+		return theme.SettingsIcon()
+	case "Help":
+		return theme.HelpIcon()
+	case "Search":
+		return theme.SearchIcon()
+	case "SearchReplace":
+		return theme.SearchReplaceIcon()
+	case "Visibility":
+		return theme.VisibilityIcon()
+	case "VisibilityOff":
+		return theme.VisibilityOffIcon()
+	case "Account":
+		return theme.AccountIcon()
+	case "Login":
+		return theme.LoginIcon()
+	case "Logout":
+		return theme.LogoutIcon()
+	case "Upload":
+		return theme.UploadIcon()
+	case "Download":
+		return theme.DownloadIcon()
+	case "History":
+		return theme.HistoryIcon()
+	case "Computer":
+		return theme.ComputerIcon()
+	case "Storage":
+		return theme.StorageIcon()
+	case "Grid":
+		return theme.GridIcon()
+	case "List":
+		return theme.ListIcon()
+	case "MailAttachment":
+		return theme.MailAttachmentIcon()
+	case "MailCompose":
+		return theme.MailComposeIcon()
+	case "MailForward":
+		return theme.MailForwardIcon()
+	case "MailReply":
+		return theme.MailReplyIcon()
+	case "MailReplyAll":
+		return theme.MailReplyAllIcon()
+	case "MailSend":
+		return theme.MailSendIcon()
+	case "ZoomFit":
+		return theme.ZoomFitIcon()
+	case "ZoomIn":
+		return theme.ZoomInIcon()
+	case "ZoomOut":
+		return theme.ZoomOutIcon()
+	case "ViewFullScreen":
+		return theme.ViewFullScreenIcon()
+	case "ViewRefresh":
+		return theme.ViewRefreshIcon()
+	case "ViewRestore":
+		return theme.ViewRestoreIcon()
+	case "ColorAchromatic":
+		return theme.ColorAchromaticIcon()
+	case "ColorChromatic":
+		return theme.ColorChromaticIcon()
+	case "ColorPalette":
+		return theme.ColorPaletteIcon()
+	case "MoreHorizontal":
+		return theme.MoreHorizontalIcon()
+	case "MoreVertical":
+		return theme.MoreVerticalIcon()
+
+	// Volume
+	case "VolumeMute":
+		return theme.VolumeMuteIcon()
+	case "VolumeDown":
+		return theme.VolumeDownIcon()
+	case "VolumeUp":
+		return theme.VolumeUpIcon()
+
+	// Brightness
+	case "BrokenImage":
+		return theme.BrokenImageIcon()
 
-	// Build menu items
-	var menuItems []*fyne.MenuItem
-
-	for _, itemInterface := range itemsInterface {
-		itemData := itemInterface.(map[string]interface{})
-
-		// Check if this is a separator
-		if isSeparator, ok := itemData["isSeparator"].(bool); ok && isSeparator {
-			menuItems = append(menuItems, fyne.NewMenuItemSeparator())
-			continue
-		}
-
-		label := itemData["label"].(string)
-		callbackID, hasCallback := itemData["callbackId"].(string)
-
-		// Capture callback ID in local scope to avoid closure issues
-		capturedCallbackID := callbackID
-		capturedHasCallback := hasCallback
-
-		menuItem := fyne.NewMenuItem(label, func() {
-			if capturedHasCallback {
-				b.sendEvent(Event{
-					Type: "callback",
-					Data: map[string]interface{}{
-						"callbackId": capturedCallbackID,
-					},
-				})
-			}
-		})
-
-		// Set disabled state if provided
-		if disabled, ok := itemData["disabled"].(bool); ok && disabled {
-			menuItem.Disabled = true
-		}
-
-		// Set checked state if provided
-		if checked, ok := itemData["checked"].(bool); ok && checked {
-			menuItem.Checked = true
-		}
-
-		menuItems = append(menuItems, menuItem)
-	}
-
-	// Create the menu widget
-	menu := widget.NewMenu(fyne.NewMenu("", menuItems...))
-
-	b.mu.Lock()
-	b.widgets[widgetID] = menu
-	b.widgetMeta[widgetID] = WidgetMetadata{Type: "menu", Text: ""}
-	b.mu.Unlock()
-
-	b.sendResponse(Response{
-		ID:      msg.ID,
-		Success: true,
-		Result:  map[string]interface{}{"widgetId": widgetID},
-	})
-}
-
-// ============================================================================
-// Canvas Primitives
-// ============================================================================
-
-func (b *Bridge) handleCreateCanvasLine(msg Message) {
-	widgetID := msg.Payload["id"].(string)
-	x1 := float32(msg.Payload["x1"].(float64))
-	y1 := float32(msg.Payload["y1"].(float64))
-	x2 := float32(msg.Payload["x2"].(float64))
-	y2 := float32(msg.Payload["y2"].(float64))
-
-	line := canvas.NewLine(color.Black)
-	line.Position1 = fyne.NewPos(x1, y1)
-	line.Position2 = fyne.NewPos(x2, y2)
-
-	// Set stroke color if provided
-	if colorHex, ok := msg.Payload["strokeColor"].(string); ok {
-		line.StrokeColor = parseHexColorSimple(colorHex)
-	}
-
-	// Set stroke width if provided
-	if strokeWidth, ok := msg.Payload["strokeWidth"].(float64); ok {
-		line.StrokeWidth = float32(strokeWidth)
-	}
-
-	b.mu.Lock()
-	b.widgets[widgetID] = line
-	b.widgetMeta[widgetID] = WidgetMetadata{Type: "canvasline", Text: ""}
-	b.mu.Unlock()
-
-	b.sendResponse(Response{
-		ID:      msg.ID,
-		Success: true,
-		Result:  map[string]interface{}{"widgetId": widgetID},
-	})
-}
-
-func (b *Bridge) handleCreateCanvasCircle(msg Message) {
-	widgetID := msg.Payload["id"].(string)
-
-	circle := canvas.NewCircle(color.Transparent)
-
-	// Set fill color if provided
-	if fillHex, ok := msg.Payload["fillColor"].(string); ok {
-		circle.FillColor = parseHexColorSimple(fillHex)
-	}
-
-	// Set stroke color if provided
-	if strokeHex, ok := msg.Payload["strokeColor"].(string); ok {
-		circle.StrokeColor = parseHexColorSimple(strokeHex)
-	}
-
-	// Set stroke width if provided
-	if strokeWidth, ok := msg.Payload["strokeWidth"].(float64); ok {
-		circle.StrokeWidth = float32(strokeWidth)
-	}
-
-	// Set position and size
-	if x, ok := msg.Payload["x"].(float64); ok {
-		if y, ok := msg.Payload["y"].(float64); ok {
-			circle.Position1 = fyne.NewPos(float32(x), float32(y))
-		}
-	}
-	if x2, ok := msg.Payload["x2"].(float64); ok {
-		if y2, ok := msg.Payload["y2"].(float64); ok {
-			circle.Position2 = fyne.NewPos(float32(x2), float32(y2))
-		}
-	}
-
-	b.mu.Lock()
-	b.widgets[widgetID] = circle
-	b.widgetMeta[widgetID] = WidgetMetadata{Type: "canvascircle", Text: ""}
-	b.mu.Unlock()
-
-	b.sendResponse(Response{
-		ID:      msg.ID,
-		Success: true,
-		Result:  map[string]interface{}{"widgetId": widgetID},
-	})
-}
-
-func (b *Bridge) handleCreateCanvasRectangle(msg Message) {
-	widgetID := msg.Payload["id"].(string)
-
-	rect := canvas.NewRectangle(color.Transparent)
-
-	// Set fill color if provided
-	if fillHex, ok := msg.Payload["fillColor"].(string); ok {
-		rect.FillColor = parseHexColorSimple(fillHex)
-	}
-
-	// Set stroke color if provided
-	if strokeHex, ok := msg.Payload["strokeColor"].(string); ok {
-		rect.StrokeColor = parseHexColorSimple(strokeHex)
-	}
-
-	// Set stroke width if provided
-	if strokeWidth, ok := msg.Payload["strokeWidth"].(float64); ok {
-		rect.StrokeWidth = float32(strokeWidth)
-	}
-
-	// Set corner radius if provided
-	if radius, ok := msg.Payload["cornerRadius"].(float64); ok {
-		rect.CornerRadius = float32(radius)
-	}
-
-	// Set minimum size if provided
-	if width, ok := msg.Payload["width"].(float64); ok {
-		if height, ok := msg.Payload["height"].(float64); ok {
-			rect.SetMinSize(fyne.NewSize(float32(width), float32(height)))
-		}
-	}
-
-	b.mu.Lock()
-	b.widgets[widgetID] = rect
-	b.widgetMeta[widgetID] = WidgetMetadata{Type: "canvasrectangle", Text: ""}
-	b.mu.Unlock()
-
-	b.sendResponse(Response{
-		ID:      msg.ID,
-		Success: true,
-		Result:  map[string]interface{}{"widgetId": widgetID},
-	})
-}
-
-func (b *Bridge) handleCreateCanvasText(msg Message) {
-	widgetID := msg.Payload["id"].(string)
-	text := msg.Payload["text"].(string)
-
-	canvasText := canvas.NewText(text, color.Black)
-
-	// Set text color if provided
-	if colorHex, ok := msg.Payload["color"].(string); ok {
-		canvasText.Color = parseHexColorSimple(colorHex)
-	}
-
-	// Set text size if provided
-	if textSize, ok := msg.Payload["textSize"].(float64); ok {
-		canvasText.TextSize = float32(textSize)
-	}
-
-	// Set text style
-	if bold, ok := msg.Payload["bold"].(bool); ok && bold {
-		canvasText.TextStyle.Bold = true
-	}
-	if italic, ok := msg.Payload["italic"].(bool); ok && italic {
-		canvasText.TextStyle.Italic = true
-	}
-	if monospace, ok := msg.Payload["monospace"].(bool); ok && monospace {
-		canvasText.TextStyle.Monospace = true
-	}
-
-	// Set alignment
-	if alignment, ok := msg.Payload["alignment"].(string); ok {
-		switch alignment {
-		case "leading":
-			canvasText.Alignment = fyne.TextAlignLeading
-		case "center":
-			canvasText.Alignment = fyne.TextAlignCenter
-		case "trailing":
-			canvasText.Alignment = fyne.TextAlignTrailing
-		}
-	}
-
-	b.mu.Lock()
-	b.widgets[widgetID] = canvasText
-	b.widgetMeta[widgetID] = WidgetMetadata{Type: "canvastext", Text: text}
-	b.mu.Unlock()
-
-	b.sendResponse(Response{
-		ID:      msg.ID,
-		Success: true,
-		Result:  map[string]interface{}{"widgetId": widgetID},
-	})
-}
-
-func (b *Bridge) handleCreateCanvasRaster(msg Message) {
-	widgetID := msg.Payload["id"].(string)
-	width := int(msg.Payload["width"].(float64))
-	height := int(msg.Payload["height"].(float64))
-
-	// Get the initial pixel data if provided (format: [[r,g,b,a], ...])
-	var pixelData [][]uint8
-	if pixels, ok := msg.Payload["pixels"].([]interface{}); ok {
-		for _, p := range pixels {
-			if pArr, ok := p.([]interface{}); ok {
-				pixel := make([]uint8, 4)
-				for i := 0; i < 4 && i < len(pArr); i++ {
-					pixel[i] = uint8(pArr[i].(float64))
-				}
-				pixelData = append(pixelData, pixel)
-			}
-		}
-	}
-
-	// Create pixel buffer
-	pixelBuffer := make([][]color.Color, height)
-	for y := 0; y < height; y++ {
-		pixelBuffer[y] = make([]color.Color, width)
-		for x := 0; x < width; x++ {
-			pixelIdx := y*width + x
-			if pixelIdx < len(pixelData) {
-				p := pixelData[pixelIdx]
-				pixelBuffer[y][x] = color.RGBA{R: p[0], G: p[1], B: p[2], A: p[3]}
-			} else {
-				pixelBuffer[y][x] = color.RGBA{R: 255, G: 255, B: 255, A: 255} // Default white
-			}
-		}
-	}
-
-	// Store pixel buffer for later updates
-	b.mu.Lock()
-	if b.rasterData == nil {
-		b.rasterData = make(map[string][][]color.Color)
-	}
-	b.rasterData[widgetID] = pixelBuffer
-	b.mu.Unlock()
-
-	// Create raster with generator function
-	raster := canvas.NewRasterWithPixels(func(x, y, w, h int) color.Color {
-		b.mu.RLock()
-		defer b.mu.RUnlock()
-		if buf, ok := b.rasterData[widgetID]; ok {
-			if y < len(buf) && x < len(buf[y]) {
-				return buf[y][x]
-			}
-		}
-		return color.White
-	})
-
-	raster.SetMinSize(fyne.NewSize(float32(width), float32(height)))
-
-	b.mu.Lock()
-	b.widgets[widgetID] = raster
-	b.widgetMeta[widgetID] = WidgetMetadata{Type: "canvasraster", Text: ""}
-	b.mu.Unlock()
-
-	b.sendResponse(Response{
-		ID:      msg.ID,
-		Success: true,
-		Result:  map[string]interface{}{"widgetId": widgetID},
-	})
-}
-
-func (b *Bridge) handleUpdateCanvasRaster(msg Message) {
-	widgetID := msg.Payload["widgetId"].(string)
-
-	b.mu.RLock()
-	widget, exists := b.widgets[widgetID]
-	b.mu.RUnlock()
-
-	if !exists {
-		b.sendResponse(Response{
-			ID:      msg.ID,
-			Success: false,
-			Error:   "Raster widget not found",
-		})
-		return
-	}
-
-	raster, ok := widget.(*canvas.Raster)
-	if !ok {
-		b.sendResponse(Response{
-			ID:      msg.ID,
-			Success: false,
-			Error:   "Widget is not a raster",
-		})
-		return
-	}
-
-	// Update individual pixels if provided
-	if updates, ok := msg.Payload["updates"].([]interface{}); ok {
-		b.mu.Lock()
-		buf := b.rasterData[widgetID]
-		for _, upd := range updates {
-			if updMap, ok := upd.(map[string]interface{}); ok {
-				x := int(updMap["x"].(float64))
-				y := int(updMap["y"].(float64))
-				r := uint8(updMap["r"].(float64))
-				g := uint8(updMap["g"].(float64))
-				bl := uint8(updMap["b"].(float64))
-				a := uint8(updMap["a"].(float64))
-
-				if y >= 0 && y < len(buf) && x >= 0 && x < len(buf[y]) {
-					buf[y][x] = color.RGBA{R: r, G: g, B: bl, A: a}
-				}
-			}
-		}
-		b.mu.Unlock()
-	}
-
-	// Refresh the raster to show updates
-	raster.Refresh()
-
-	b.sendResponse(Response{
-		ID:      msg.ID,
-		Success: true,
-	})
-}
-
-func (b *Bridge) handleCreateCanvasLinearGradient(msg Message) {
-	widgetID := msg.Payload["id"].(string)
-
-	// Parse start and end colors
-	var startColor color.Color = color.White
-	var endColor color.Color = color.Black
-
-	if startHex, ok := msg.Payload["startColor"].(string); ok {
-		startColor = parseHexColorSimple(startHex)
-	}
-	if endHex, ok := msg.Payload["endColor"].(string); ok {
-		endColor = parseHexColorSimple(endHex)
-	}
-
-	gradient := canvas.NewLinearGradient(startColor, endColor, 0)
-
-	// Set angle if provided (in degrees)
-	if angle, ok := msg.Payload["angle"].(float64); ok {
-		gradient.Angle = angle
-	}
-
-	// Set minimum size if provided
-	if width, ok := msg.Payload["width"].(float64); ok {
-		if height, ok := msg.Payload["height"].(float64); ok {
-			gradient.SetMinSize(fyne.NewSize(float32(width), float32(height)))
-		}
-	}
-
-	b.mu.Lock()
-	b.widgets[widgetID] = gradient
-	b.widgetMeta[widgetID] = WidgetMetadata{Type: "canvaslineargradient", Text: ""}
-	b.mu.Unlock()
-
-	b.sendResponse(Response{
-		ID:      msg.ID,
-		Success: true,
-		Result:  map[string]interface{}{"widgetId": widgetID},
-	})
-}
-
-func (b *Bridge) handleUpdateCanvasLine(msg Message) {
-	widgetID := msg.Payload["widgetId"].(string)
-
-	b.mu.RLock()
-	widget, exists := b.widgets[widgetID]
-	b.mu.RUnlock()
-
-	if !exists {
-		b.sendResponse(Response{
-			ID:      msg.ID,
-			Success: false,
-			Error:   "Line widget not found",
-		})
-		return
-	}
-
-	line, ok := widget.(*canvas.Line)
-	if !ok {
-		b.sendResponse(Response{
-			ID:      msg.ID,
-			Success: false,
-			Error:   "Widget is not a line",
-		})
-		return
-	}
-
-	// Update position if provided
-	if x1, ok := msg.Payload["x1"].(float64); ok {
-		if y1, ok := msg.Payload["y1"].(float64); ok {
-			line.Position1 = fyne.NewPos(float32(x1), float32(y1))
-		}
-	}
-	if x2, ok := msg.Payload["x2"].(float64); ok {
-		if y2, ok := msg.Payload["y2"].(float64); ok {
-			line.Position2 = fyne.NewPos(float32(x2), float32(y2))
-		}
-	}
-
-	// Update stroke color if provided
-	if colorHex, ok := msg.Payload["strokeColor"].(string); ok {
-		line.StrokeColor = parseHexColorSimple(colorHex)
-	}
-
-	// Update stroke width if provided
-	if strokeWidth, ok := msg.Payload["strokeWidth"].(float64); ok {
-		line.StrokeWidth = float32(strokeWidth)
-	}
-
-	line.Refresh()
-
-	b.sendResponse(Response{
-		ID:      msg.ID,
-		Success: true,
-	})
-}
-
-func (b *Bridge) handleUpdateCanvasCircle(msg Message) {
-	widgetID := msg.Payload["widgetId"].(string)
-
-	b.mu.RLock()
-	widget, exists := b.widgets[widgetID]
-	b.mu.RUnlock()
-
-	if !exists {
-		b.sendResponse(Response{
-			ID:      msg.ID,
-			Success: false,
-			Error:   "Circle widget not found",
-		})
-		return
-	}
-
-	circle, ok := widget.(*canvas.Circle)
-	if !ok {
-		b.sendResponse(Response{
-			ID:      msg.ID,
-			Success: false,
-			Error:   "Widget is not a circle",
-		})
-		return
-	}
-
-	// Update fill color if provided
-	if fillHex, ok := msg.Payload["fillColor"].(string); ok {
-		circle.FillColor = parseHexColorSimple(fillHex)
-	}
-
-	// Update stroke color if provided
-	if strokeHex, ok := msg.Payload["strokeColor"].(string); ok {
-		circle.StrokeColor = parseHexColorSimple(strokeHex)
-	}
-
-	// Update stroke width if provided
-	if strokeWidth, ok := msg.Payload["strokeWidth"].(float64); ok {
-		circle.StrokeWidth = float32(strokeWidth)
-	}
-
-	// Update position if provided
-	if x, ok := msg.Payload["x"].(float64); ok {
-		if y, ok := msg.Payload["y"].(float64); ok {
-			circle.Position1 = fyne.NewPos(float32(x), float32(y))
-		}
-	}
-	if x2, ok := msg.Payload["x2"].(float64); ok {
-		if y2, ok := msg.Payload["y2"].(float64); ok {
-			circle.Position2 = fyne.NewPos(float32(x2), float32(y2))
-		}
-	}
-
-	circle.Refresh()
-
-	b.sendResponse(Response{
-		ID:      msg.ID,
-		Success: true,
-	})
-}
-
-func (b *Bridge) handleUpdateCanvasRectangle(msg Message) {
-	widgetID := msg.Payload["widgetId"].(string)
-
-	b.mu.RLock()
-	widget, exists := b.widgets[widgetID]
-	b.mu.RUnlock()
-
-	if !exists {
-		b.sendResponse(Response{
-			ID:      msg.ID,
-			Success: false,
-			Error:   "Rectangle widget not found",
-		})
-		return
-	}
-
-	rect, ok := widget.(*canvas.Rectangle)
-	if !ok {
-		b.sendResponse(Response{
-			ID:      msg.ID,
-			Success: false,
-			Error:   "Widget is not a rectangle",
-		})
-		return
-	}
-
-	// Update fill color if provided
-	if fillHex, ok := msg.Payload["fillColor"].(string); ok {
-		rect.FillColor = parseHexColorSimple(fillHex)
-	}
-
-	// Update stroke color if provided
-	if strokeHex, ok := msg.Payload["strokeColor"].(string); ok {
-		rect.StrokeColor = parseHexColorSimple(strokeHex)
-	}
-
-	// Update stroke width if provided
-	if strokeWidth, ok := msg.Payload["strokeWidth"].(float64); ok {
-		rect.StrokeWidth = float32(strokeWidth)
-	}
-
-	// Update corner radius if provided
-	if radius, ok := msg.Payload["cornerRadius"].(float64); ok {
-		rect.CornerRadius = float32(radius)
-	}
-
-	// Update size if provided
-	if width, ok := msg.Payload["width"].(float64); ok {
-		if height, ok := msg.Payload["height"].(float64); ok {
-			rect.SetMinSize(fyne.NewSize(float32(width), float32(height)))
-		}
-	}
-
-	rect.Refresh()
-
-	b.sendResponse(Response{
-		ID:      msg.ID,
-		Success: true,
-	})
-}
-
-func (b *Bridge) handleUpdateCanvasText(msg Message) {
-	widgetID := msg.Payload["widgetId"].(string)
-
-	b.mu.RLock()
-	widget, exists := b.widgets[widgetID]
-	b.mu.RUnlock()
-
-	if !exists {
-		b.sendResponse(Response{
-			ID:      msg.ID,
-			Success: false,
-			Error:   "Canvas text widget not found",
-		})
-		return
-	}
-
-	canvasText, ok := widget.(*canvas.Text)
-	if !ok {
-		b.sendResponse(Response{
-			ID:      msg.ID,
-			Success: false,
-			Error:   "Widget is not a canvas text",
-		})
-		return
-	}
-
-	// Update text if provided
-	if text, ok := msg.Payload["text"].(string); ok {
-		canvasText.Text = text
-	}
-
-	// Update color if provided
-	if colorHex, ok := msg.Payload["color"].(string); ok {
-		canvasText.Color = parseHexColorSimple(colorHex)
-	}
-
-	// Update text size if provided
-	if textSize, ok := msg.Payload["textSize"].(float64); ok {
-		canvasText.TextSize = float32(textSize)
-	}
-
-	canvasText.Refresh()
-
-	b.sendResponse(Response{
-		ID:      msg.ID,
-		Success: true,
-	})
-}
-
-func (b *Bridge) handleUpdateCanvasLinearGradient(msg Message) {
-	widgetID := msg.Payload["widgetId"].(string)
-
-	b.mu.RLock()
-	widget, exists := b.widgets[widgetID]
-	b.mu.RUnlock()
-
-	if !exists {
-		b.sendResponse(Response{
-			ID:      msg.ID,
-			Success: false,
-			Error:   "Gradient widget not found",
-		})
-		return
-	}
-
-	gradient, ok := widget.(*canvas.LinearGradient)
-	if !ok {
-		b.sendResponse(Response{
-			ID:      msg.ID,
-			Success: false,
-			Error:   "Widget is not a linear gradient",
-		})
-		return
-	}
-
-	// Update start color if provided
-	if startHex, ok := msg.Payload["startColor"].(string); ok {
-		gradient.StartColor = parseHexColorSimple(startHex)
-	}
-
-	// Update end color if provided
-	if endHex, ok := msg.Payload["endColor"].(string); ok {
-		gradient.EndColor = parseHexColorSimple(endHex)
-	}
-
-	// Update angle if provided
-	if angle, ok := msg.Payload["angle"].(float64); ok {
-		gradient.Angle = angle
-	}
-
-	gradient.Refresh()
-
-	b.sendResponse(Response{
-		ID:      msg.ID,
-		Success: true,
-	})
-}
-
-// parseHexColorSimple parses a hex color string (e.g., "#FF0000" or "FF0000") to color.Color
-// This is a simpler version that returns a default color on error, used by canvas primitives
-func parseHexColorSimple(hexStr string) color.Color {
-	// Remove leading # if present
-	if len(hexStr) > 0 && hexStr[0] == '#' {
-		hexStr = hexStr[1:]
-	}
-
-	// Parse hex values
-	var r, g, bl, a uint8
-	a = 255 // Default alpha
-
-	switch len(hexStr) {
-	case 6: // RGB
-		fmt.Sscanf(hexStr, "%02x%02x%02x", &r, &g, &bl)
-	case 8: // RGBA
-		fmt.Sscanf(hexStr, "%02x%02x%02x%02x", &r, &g, &bl, &a)
-	case 3: // Short RGB (e.g., "F00" for red)
-		var sr, sg, sb uint8
-		fmt.Sscanf(hexStr, "%1x%1x%1x", &sr, &sg, &sb)
-		r, g, bl = sr*17, sg*17, sb*17
 	default:
-		return color.Black
+		return nil
 	}
-
-	return color.RGBA{R: r, G: g, B: bl, A: a}
 }
 
-func (b *Bridge) handleCreateInnerWindow(msg Message) {
+func (b *Bridge) handleCreateIcon(msg Message) {
 	widgetID := msg.Payload["id"].(string)
-	title := msg.Payload["title"].(string)
-	contentID := msg.Payload["contentId"].(string)
+	iconName := msg.Payload["iconName"].(string)
 
-	b.mu.RLock()
-	content, exists := b.widgets[contentID]
-	b.mu.RUnlock()
-
-	if !exists {
+	// Get the theme icon resource
+	iconResource := getThemeIcon(iconName)
+	if iconResource == nil {
 		b.sendResponse(Response{
 			ID:      msg.ID,
 			Success: false,
-			Error:   fmt.Sprintf("Content widget not found: %s", contentID),
+			Error:   fmt.Sprintf("Unknown icon name: %s", iconName),
 		})
 		return
 	}
 
-	innerWindow := container.NewInnerWindow(title, content)
-
-	// Set up onClose callback if provided
-	if closeCallbackID, ok := msg.Payload["onCloseCallbackId"].(string); ok {
-		innerWindow.CloseIntercept = func() {
-			b.sendEvent(Event{
-				Type: "callback",
-				Data: map[string]interface{}{
-					"callbackId": closeCallbackID,
-				},
-			})
-		}
-	}
+	// Create the Icon widget
+	icon := widget.NewIcon(iconResource)
 
 	b.mu.Lock()
-	b.widgets[widgetID] = innerWindow
-	b.widgetMeta[widgetID] = WidgetMetadata{Type: "innerwindow", Text: title}
-	b.childToParent[contentID] = widgetID
+	b.widgets[widgetID] = icon
+	b.widgetMeta[widgetID] = WidgetMetadata{Type: "icon", Text: iconName}
 	b.mu.Unlock()
 
 	b.sendResponse(Response{
 		ID:      msg.ID,
 		Success: true,
 		Result:  map[string]interface{}{"widgetId": widgetID},
-	})
-}
-
-func (b *Bridge) handleInnerWindowClose(msg Message) {
-	widgetID := msg.Payload["widgetId"].(string)
-
-	b.mu.RLock()
-	widget, exists := b.widgets[widgetID]
-	b.mu.RUnlock()
-
-	if !exists {
-		b.sendResponse(Response{
-			ID:      msg.ID,
-			Success: false,
-			Error:   "InnerWindow not found",
-		})
-		return
-	}
-
-	innerWindow, ok := widget.(*container.InnerWindow)
-	if !ok {
-		b.sendResponse(Response{
-			ID:      msg.ID,
-			Success: false,
-			Error:   "Widget is not an InnerWindow",
-		})
-		return
-	}
-
-	innerWindow.Close()
-
-	b.sendResponse(Response{
-		ID:      msg.ID,
-		Success: true,
-	})
-}
-
-func (b *Bridge) handleSetInnerWindowTitle(msg Message) {
-	widgetID := msg.Payload["widgetId"].(string)
-	title := msg.Payload["title"].(string)
-
-	b.mu.RLock()
-	_, exists := b.widgets[widgetID]
-	b.mu.RUnlock()
-
-	if !exists {
-		b.sendResponse(Response{
-			ID:      msg.ID,
-			Success: false,
-			Error:   "InnerWindow not found",
-		})
-		return
-	}
-
-	// Note: Fyne's InnerWindow title is set at creation time and cannot be changed
-	// We update the metadata for tracking purposes
-	// To change the title, the window would need to be recreated
-	b.mu.Lock()
-	b.widgetMeta[widgetID] = WidgetMetadata{Type: "innerwindow", Text: title}
-	b.mu.Unlock()
-
-	b.sendResponse(Response{
-		ID:      msg.ID,
-		Success: true,
 	})
 }

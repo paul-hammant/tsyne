@@ -459,91 +459,6 @@ export abstract class Widget {
       await this.visibilityCondition();
     }
   }
-
-  // ==================== Drag & Drop ====================
-
-  /**
-   * Make this widget draggable
-   * @param options Drag options including data and callbacks
-   * @returns this for method chaining
-   * @example
-   * a.label('Drag me').makeDraggable({
-   *   dragData: 'item-1',
-   *   onDragStart: () => console.log('Started dragging'),
-   *   onDragEnd: () => console.log('Stopped dragging')
-   * });
-   */
-  makeDraggable(options: {
-    dragData: string;
-    onDragStart?: () => void;
-    onDragEnd?: () => void;
-  }): this {
-    const payload: any = {
-      widgetId: this.id,
-      dragData: options.dragData
-    };
-
-    if (options.onDragStart) {
-      const callbackId = this.ctx.generateId('callback');
-      payload.onDragStartCallbackId = callbackId;
-      this.ctx.bridge.registerEventHandler(callbackId, () => options.onDragStart!());
-    }
-
-    if (options.onDragEnd) {
-      const callbackId = this.ctx.generateId('callback');
-      payload.onDragEndCallbackId = callbackId;
-      this.ctx.bridge.registerEventHandler(callbackId, () => options.onDragEnd!());
-    }
-
-    this.ctx.bridge.send('setDraggable', payload);
-    return this;
-  }
-
-  /**
-   * Make this widget a drop target
-   * @param options Drop options including callbacks
-   * @returns this for method chaining
-   * @example
-   * a.vbox(() => { ... }).makeDroppable({
-   *   onDrop: (data, sourceId) => console.log('Dropped:', data),
-   *   onDragEnter: () => console.log('Drag entered'),
-   *   onDragLeave: () => console.log('Drag left')
-   * });
-   */
-  makeDroppable(options: {
-    onDrop?: (dragData: string, sourceId: string) => void;
-    onDragEnter?: (dragData: string, sourceId: string) => void;
-    onDragLeave?: () => void;
-  }): this {
-    const payload: any = {
-      widgetId: this.id
-    };
-
-    if (options.onDrop) {
-      const callbackId = this.ctx.generateId('callback');
-      payload.onDropCallbackId = callbackId;
-      this.ctx.bridge.registerEventHandler(callbackId, (data: any) => {
-        options.onDrop!(data.dragData, data.sourceId);
-      });
-    }
-
-    if (options.onDragEnter) {
-      const callbackId = this.ctx.generateId('callback');
-      payload.onDragEnterCallbackId = callbackId;
-      this.ctx.bridge.registerEventHandler(callbackId, (data: any) => {
-        options.onDragEnter!(data.dragData, data.sourceId);
-      });
-    }
-
-    if (options.onDragLeave) {
-      const callbackId = this.ctx.generateId('callback');
-      payload.onDragLeaveCallbackId = callbackId;
-      this.ctx.bridge.registerEventHandler(callbackId, () => options.onDragLeave!());
-    }
-
-    this.ctx.bridge.send('setDroppable', payload);
-    return this;
-  }
 }
 
 /**
@@ -2123,453 +2038,58 @@ export class GridWrap {
 }
 
 /**
- * Menu item for standalone Menu widget
+ * Available theme icon names for the Icon widget
  */
-export interface MenuItem {
-  label: string;
-  onSelected: () => void;
-  disabled?: boolean;
-  checked?: boolean;
-  isSeparator?: boolean;
-}
+export type ThemeIconName =
+  // Navigation & UI
+  | 'NavigateBack' | 'NavigateNext'
+  | 'Menu' | 'MenuExpand' | 'MenuDropDown' | 'MenuDropUp'
+  | 'MoveUp' | 'MoveDown'
+  // File & Folder
+  | 'File' | 'FileApplication' | 'FileAudio' | 'FileImage' | 'FileText' | 'FileVideo'
+  | 'Folder' | 'FolderNew' | 'FolderOpen'
+  // Document
+  | 'Document' | 'DocumentCreate' | 'DocumentPrint' | 'DocumentSave'
+  // Media
+  | 'MediaPlay' | 'MediaPause' | 'MediaStop' | 'MediaRecord' | 'MediaReplay'
+  | 'MediaMusic' | 'MediaPhoto' | 'MediaVideo'
+  | 'MediaFastForward' | 'MediaFastRewind' | 'MediaSkipNext' | 'MediaSkipPrevious'
+  // Content Actions
+  | 'ContentAdd' | 'ContentRemove' | 'ContentCopy' | 'ContentCut' | 'ContentPaste'
+  | 'ContentClear' | 'ContentUndo' | 'ContentRedo'
+  // Dialog & Status
+  | 'Confirm' | 'Cancel' | 'Delete' | 'Error' | 'Warning' | 'Info' | 'Question'
+  // Form Elements
+  | 'CheckButton' | 'CheckButtonChecked' | 'RadioButton' | 'RadioButtonChecked'
+  // Miscellaneous
+  | 'Home' | 'Settings' | 'Help' | 'Search' | 'SearchReplace'
+  | 'Visibility' | 'VisibilityOff'
+  | 'Account' | 'Login' | 'Logout'
+  | 'Upload' | 'Download' | 'History'
+  | 'Computer' | 'Storage' | 'Grid' | 'List'
+  | 'MailAttachment' | 'MailCompose' | 'MailForward' | 'MailReply' | 'MailReplyAll' | 'MailSend'
+  | 'ZoomFit' | 'ZoomIn' | 'ZoomOut'
+  | 'ViewFullScreen' | 'ViewRefresh' | 'ViewRestore'
+  | 'ColorAchromatic' | 'ColorChromatic' | 'ColorPalette'
+  | 'MoreHorizontal' | 'MoreVertical'
+  // Volume
+  | 'VolumeMute' | 'VolumeDown' | 'VolumeUp'
+  // Other
+  | 'BrokenImage';
 
 /**
- * Menu widget - standalone menu that can be embedded in containers
- * Useful for command palettes, action menus, and in-container menus
+ * Icon widget - displays a theme icon
+ * @example
+ * a.icon('Home');
+ * a.icon('Settings');
+ * a.icon('MediaPlay');
  */
-export class Menu extends Widget {
-  private items: MenuItem[];
-
-  constructor(ctx: Context, items: MenuItem[]) {
-    const id = ctx.generateId('menu');
+export class Icon extends Widget {
+  constructor(ctx: Context, iconName: ThemeIconName) {
+    const id = ctx.generateId('icon');
     super(ctx, id);
-    this.items = items;
 
-    const menuItems = items.map(item => {
-      if (item.isSeparator) {
-        return { isSeparator: true };
-      }
-
-      const callbackId = ctx.generateId('callback');
-      ctx.bridge.registerEventHandler(callbackId, () => item.onSelected());
-
-      return {
-        label: item.label,
-        callbackId,
-        disabled: item.disabled,
-        checked: item.checked
-      };
-    });
-
-    ctx.bridge.send('createMenu', { id, items: menuItems });
+    ctx.bridge.send('createIcon', { id, iconName });
     ctx.addToCurrentContainer(id);
-
-    // Apply styles from stylesheet (non-blocking)
-    this.applyStyles('menu').catch(() => {});
-  }
-
-  /**
-   * Get the current menu items
-   */
-  getItems(): MenuItem[] {
-    return this.items;
-  }
-}
-// ============================================================================
-// Canvas Primitives
-// ============================================================================
-
-/**
- * Canvas Line - draws a line between two points
- */
-export class CanvasLine {
-  private ctx: Context;
-  public id: string;
-
-  constructor(ctx: Context, x1: number, y1: number, x2: number, y2: number, options?: {
-    strokeColor?: string;
-    strokeWidth?: number;
-  }) {
-    this.ctx = ctx;
-    this.id = ctx.generateId('canvasline');
-
-    const payload: any = {
-      id: this.id,
-      x1, y1, x2, y2
-    };
-
-    if (options?.strokeColor) {
-      payload.strokeColor = options.strokeColor;
-    }
-    if (options?.strokeWidth) {
-      payload.strokeWidth = options.strokeWidth;
-    }
-
-    ctx.bridge.send('createCanvasLine', payload);
-    ctx.addToCurrentContainer(this.id);
-  }
-
-  async update(options: {
-    x1?: number; y1?: number;
-    x2?: number; y2?: number;
-    strokeColor?: string;
-    strokeWidth?: number;
-  }): Promise<void> {
-    await this.ctx.bridge.send('updateCanvasLine', {
-      widgetId: this.id,
-      ...options
-    });
-  }
-}
-
-/**
- * Canvas Circle - draws a circle/ellipse
- */
-export class CanvasCircle {
-  private ctx: Context;
-  public id: string;
-
-  constructor(ctx: Context, options?: {
-    x?: number; y?: number;
-    x2?: number; y2?: number;
-    fillColor?: string;
-    strokeColor?: string;
-    strokeWidth?: number;
-  }) {
-    this.ctx = ctx;
-    this.id = ctx.generateId('canvascircle');
-
-    const payload: any = { id: this.id };
-
-    if (options) {
-      if (options.x !== undefined) payload.x = options.x;
-      if (options.y !== undefined) payload.y = options.y;
-      if (options.x2 !== undefined) payload.x2 = options.x2;
-      if (options.y2 !== undefined) payload.y2 = options.y2;
-      if (options.fillColor) payload.fillColor = options.fillColor;
-      if (options.strokeColor) payload.strokeColor = options.strokeColor;
-      if (options.strokeWidth !== undefined) payload.strokeWidth = options.strokeWidth;
-    }
-
-    ctx.bridge.send('createCanvasCircle', payload);
-    ctx.addToCurrentContainer(this.id);
-  }
-
-  async update(options: {
-    x?: number; y?: number;
-    x2?: number; y2?: number;
-    fillColor?: string;
-    strokeColor?: string;
-    strokeWidth?: number;
-  }): Promise<void> {
-    await this.ctx.bridge.send('updateCanvasCircle', {
-      widgetId: this.id,
-      ...options
-    });
-  }
-}
-
-/**
- * Canvas Rectangle - draws a rectangle
- */
-export class CanvasRectangle {
-  private ctx: Context;
-  public id: string;
-
-  constructor(ctx: Context, options?: {
-    width?: number;
-    height?: number;
-    fillColor?: string;
-    strokeColor?: string;
-    strokeWidth?: number;
-    cornerRadius?: number;
-  }) {
-    this.ctx = ctx;
-    this.id = ctx.generateId('canvasrectangle');
-
-    const payload: any = { id: this.id };
-
-    if (options) {
-      if (options.width !== undefined) payload.width = options.width;
-      if (options.height !== undefined) payload.height = options.height;
-      if (options.fillColor) payload.fillColor = options.fillColor;
-      if (options.strokeColor) payload.strokeColor = options.strokeColor;
-      if (options.strokeWidth !== undefined) payload.strokeWidth = options.strokeWidth;
-      if (options.cornerRadius !== undefined) payload.cornerRadius = options.cornerRadius;
-    }
-
-    ctx.bridge.send('createCanvasRectangle', payload);
-    ctx.addToCurrentContainer(this.id);
-  }
-
-  async update(options: {
-    width?: number;
-    height?: number;
-    fillColor?: string;
-    strokeColor?: string;
-    strokeWidth?: number;
-    cornerRadius?: number;
-  }): Promise<void> {
-    await this.ctx.bridge.send('updateCanvasRectangle', {
-      widgetId: this.id,
-      ...options
-    });
-  }
-}
-
-/**
- * Canvas Text - draws text on the canvas
- */
-export class CanvasText {
-  private ctx: Context;
-  public id: string;
-
-  constructor(ctx: Context, text: string, options?: {
-    color?: string;
-    textSize?: number;
-    bold?: boolean;
-    italic?: boolean;
-    monospace?: boolean;
-    alignment?: 'leading' | 'center' | 'trailing';
-  }) {
-    this.ctx = ctx;
-    this.id = ctx.generateId('canvastext');
-
-    const payload: any = { id: this.id, text };
-
-    if (options) {
-      if (options.color) payload.color = options.color;
-      if (options.textSize !== undefined) payload.textSize = options.textSize;
-      if (options.bold !== undefined) payload.bold = options.bold;
-      if (options.italic !== undefined) payload.italic = options.italic;
-      if (options.monospace !== undefined) payload.monospace = options.monospace;
-      if (options.alignment) payload.alignment = options.alignment;
-    }
-
-    ctx.bridge.send('createCanvasText', payload);
-    ctx.addToCurrentContainer(this.id);
-  }
-
-  async update(options: {
-    text?: string;
-    color?: string;
-    textSize?: number;
-  }): Promise<void> {
-    await this.ctx.bridge.send('updateCanvasText', {
-      widgetId: this.id,
-      ...options
-    });
-  }
-}
-
-/**
- * Canvas Raster - pixel-level drawing
- */
-export class CanvasRaster {
-  private ctx: Context;
-  public id: string;
-  private _width: number;
-  private _height: number;
-
-  constructor(ctx: Context, width: number, height: number, pixels?: Array<[number, number, number, number]>) {
-    this.ctx = ctx;
-    this.id = ctx.generateId('canvasraster');
-    this._width = width;
-    this._height = height;
-
-    const payload: any = { id: this.id, width, height };
-
-    if (pixels) {
-      payload.pixels = pixels;
-    }
-
-    ctx.bridge.send('createCanvasRaster', payload);
-    ctx.addToCurrentContainer(this.id);
-  }
-
-  get width(): number { return this._width; }
-  get height(): number { return this._height; }
-
-  /**
-   * Update individual pixels
-   * @param updates Array of pixel updates {x, y, r, g, b, a}
-   */
-  async setPixels(updates: Array<{x: number; y: number; r: number; g: number; b: number; a: number}>): Promise<void> {
-    await this.ctx.bridge.send('updateCanvasRaster', {
-      widgetId: this.id,
-      updates
-    });
-  }
-
-  /**
-   * Set a single pixel
-   */
-  async setPixel(x: number, y: number, r: number, g: number, b: number, a: number = 255): Promise<void> {
-    await this.setPixels([{x, y, r, g, b, a}]);
-  }
-}
-
-/**
- * Canvas Linear Gradient - draws a gradient fill
- */
-export class CanvasLinearGradient {
-  private ctx: Context;
-  public id: string;
-
-  constructor(ctx: Context, options?: {
-    startColor?: string;
-    endColor?: string;
-    angle?: number;
-    width?: number;
-    height?: number;
-  }) {
-    this.ctx = ctx;
-    this.id = ctx.generateId('canvaslineargradient');
-
-    const payload: any = { id: this.id };
-
-    if (options) {
-      if (options.startColor) payload.startColor = options.startColor;
-      if (options.endColor) payload.endColor = options.endColor;
-      if (options.angle !== undefined) payload.angle = options.angle;
-      if (options.width !== undefined) payload.width = options.width;
-      if (options.height !== undefined) payload.height = options.height;
-    }
-
-    ctx.bridge.send('createCanvasLinearGradient', payload);
-    ctx.addToCurrentContainer(this.id);
-  }
-
-  async update(options: {
-    startColor?: string;
-    endColor?: string;
-    angle?: number;
-  }): Promise<void> {
-    await this.ctx.bridge.send('updateCanvasLinearGradient', {
-      widgetId: this.id,
-      ...options
-    });
-  }
-}
-
-/**
- * Clip container - clips any content that extends beyond the bounds of its child
- * Useful for constraining overflow in layouts and preventing content from bleeding outside containers
- */
-export class Clip {
-  private ctx: Context;
-  public id: string;
-
-  constructor(ctx: Context, builder: () => void) {
-    this.ctx = ctx;
-    this.id = ctx.generateId('clip');
-
-    // Build child content
-    ctx.pushContainer();
-    builder();
-    const children = ctx.popContainer();
-
-    if (children.length !== 1) {
-      throw new Error('Clip must have exactly one child');
-    }
-
-    ctx.bridge.send('createClip', {
-      id: this.id,
-      childId: children[0]
-    });
-
-    ctx.addToCurrentContainer(this.id);
-  }
-}
-
-/**
- * InnerWindow - a window-like container that can be placed inside a canvas
- * Useful for MDI (Multiple Document Interface) applications
- */
-export class InnerWindow {
-  private ctx: Context;
-  public id: string;
-
-  constructor(ctx: Context, title: string, builder: () => void, onClose?: () => void) {
-    this.ctx = ctx;
-    this.id = ctx.generateId('innerwindow');
-
-    // Build content
-    ctx.pushContainer();
-    builder();
-    const children = ctx.popContainer();
-
-    if (children.length !== 1) {
-      throw new Error('InnerWindow must have exactly one child');
-    }
-
-    const contentId = children[0];
-
-    const payload: any = {
-      id: this.id,
-      title,
-      contentId
-    };
-
-    if (onClose) {
-      const closeCallbackId = ctx.generateId('callback');
-      payload.onCloseCallbackId = closeCallbackId;
-      ctx.bridge.registerEventHandler(closeCallbackId, () => {
-        onClose();
-      });
-    }
-
-    ctx.bridge.send('createInnerWindow', payload);
-    ctx.addToCurrentContainer(this.id);
-  }
-
-  /**
-   * Close the inner window
-   */
-  async close(): Promise<void> {
-    await this.ctx.bridge.send('innerWindowClose', {
-      widgetId: this.id
-    });
-  }
-
-  /**
-   * Set the title of the inner window
-   */
-  async setTitle(title: string): Promise<void> {
-    await this.ctx.bridge.send('setInnerWindowTitle', {
-      widgetId: this.id,
-      title
-    });
-  }
-
-  /**
-   * Hide the inner window
-   */
-  async hide(): Promise<void> {
-    await this.ctx.bridge.send('hideWidget', {
-      widgetId: this.id
-    });
-  }
-
-  /**
-   * Show the inner window
-   */
-  async show(): Promise<void> {
-    await this.ctx.bridge.send('showWidget', {
-      widgetId: this.id
-    });
-  }
-
-  /**
-   * Register a custom ID for this inner window (for test framework getByID)
-   * @param customId Custom ID to register
-   * @returns this for method chaining
-   */
-  withId(customId: string): this {
-    this.ctx.bridge.send('registerCustomId', {
-      widgetId: this.id,
-      customId
-    });
-    return this;
   }
 }

@@ -1,6 +1,6 @@
 import { App, AppOptions } from './app';
 import { Context } from './context';
-import { Button, Label, Entry, MultiLineEntry, PasswordEntry, Separator, Hyperlink, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, Split, Tabs, Toolbar, ToolbarAction, Table, List, Center, Stack, Card, Accordion, Form, Tree, RichText, Image, Border, GridWrap, Menu, MenuItem, CanvasLine, CanvasCircle, CanvasRectangle, CanvasText, CanvasRaster, CanvasLinearGradient, Clip, InnerWindow } from './widgets';
+import { Button, Label, Entry, MultiLineEntry, PasswordEntry, Separator, Hyperlink, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, Split, Tabs, Toolbar, ToolbarAction, Table, List, Center, Stack, Card, Accordion, Form, Tree, RichText, Image, Border, GridWrap, Menu, MenuItem, CanvasLine, CanvasCircle, CanvasRectangle, CanvasText, CanvasRaster, CanvasLinearGradient, Clip, InnerWindow, Icon, ThemeIconName } from './widgets';
 import { Window, WindowOptions, ProgressDialog } from './window';
 
 // Global context for the declarative API
@@ -389,6 +389,16 @@ export function image(path: string, fillMode?: 'contain' | 'stretch' | 'original
 }
 
 /**
+ * Create an icon widget (displays a theme icon)
+ */
+export function icon(iconName: ThemeIconName): Icon {
+  if (!globalContext) {
+    throw new Error('icon() must be called within an app context');
+  }
+  return new Icon(globalContext, iconName);
+}
+
+/**
  * Create a border layout
  */
 export function border(config: {
@@ -415,37 +425,6 @@ export function gridwrap(itemWidth: number, itemHeight: number, builder: () => v
 }
 
 /**
- * Create a standalone menu widget
- * Useful for command palettes, action menus, and embedded menus
- */
-export function menu(items: MenuItem[]): Menu {
-  if (!globalContext) {
-    throw new Error('menu() must be called within an app context');
-  }
-  return new Menu(globalContext, items);
-}
-
-/**
- * Create a clip container that clips any content extending beyond its bounds
- */
-export function clip(builder: () => void): Clip {
-  if (!globalContext) {
-    throw new Error('clip() must be called within an app context');
-  }
-  return new Clip(globalContext, builder);
-}
-
-/**
- * Create an inner window (window within canvas for MDI applications)
- */
-export function innerWindow(title: string, builder: () => void, onClose?: () => void): InnerWindow {
-  if (!globalContext) {
-    throw new Error('innerWindow() must be called within an app context');
-  }
-  return new InnerWindow(globalContext, title, builder, onClose);
-}
-
-/**
  * Set the application theme
  */
 export async function setTheme(theme: 'dark' | 'light'): Promise<void> {
@@ -465,76 +444,9 @@ export async function getTheme(): Promise<'dark' | 'light'> {
   return await globalApp.getTheme();
 }
 
-import type { CustomThemeColors, FontTextStyle, FontInfo } from './app';
-
-/**
- * Set a custom theme with custom colors
- * @param colors - Object with color names and hex values (#RRGGBB or #RRGGBBAA)
- */
-export async function setCustomTheme(colors: CustomThemeColors): Promise<void> {
-  if (!globalApp) {
-    throw new Error('setCustomTheme() must be called within an app context');
-  }
-  await globalApp.setCustomTheme(colors);
-}
-
-/**
- * Clear custom theme and revert to default
- */
-export async function clearCustomTheme(): Promise<void> {
-  if (!globalApp) {
-    throw new Error('clearCustomTheme() must be called within an app context');
-  }
-  await globalApp.clearCustomTheme();
-}
-
-/**
- * Set a custom font for a specific text style
- * @param path - Path to the font file (.ttf or .otf)
- * @param style - Which text style to apply the font to
- */
-export async function setCustomFont(path: string, style?: FontTextStyle): Promise<void> {
-  if (!globalApp) {
-    throw new Error('setCustomFont() must be called within an app context');
-  }
-  await globalApp.setCustomFont(path, style);
-}
-
-/**
- * Clear custom font for a specific style or all styles
- * @param style - Which style to clear, or 'all' to clear all custom fonts
- */
-export async function clearCustomFont(style?: FontTextStyle | 'all'): Promise<void> {
-  if (!globalApp) {
-    throw new Error('clearCustomFont() must be called within an app context');
-  }
-  await globalApp.clearCustomFont(style);
-}
-
-/**
- * Get information about available fonts and supported formats
- */
-export async function getAvailableFonts(): Promise<FontInfo> {
-  if (!globalApp) {
-    throw new Error('getAvailableFonts() must be called within an app context');
-  }
-  return await globalApp.getAvailableFonts();
-}
-
-/**
- * Set the global font scale
- * @param scale - Font scale factor (0.75 = small, 1.0 = normal, 1.5 = large)
- */
-export async function setFontScale(scale: number): Promise<void> {
-  if (!globalApp) {
-    throw new Error('setFontScale() must be called within an app context');
-  }
-  await globalApp.setFontScale(scale);
-}
-
 // Export classes for advanced usage
-export { App, Window, ProgressDialog, Button, Label, Entry, MultiLineEntry, PasswordEntry, Separator, Hyperlink, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, Split, Tabs, Toolbar, Table, List, Center, Stack, Card, Accordion, Form, Tree, RichText, Image, Border, GridWrap, Menu, CanvasLine, CanvasCircle, CanvasRectangle, CanvasText, CanvasRaster, CanvasLinearGradient, Clip, InnerWindow };
-export type { AppOptions, WindowOptions, MenuItem };
+export { App, Window, ProgressDialog, Button, Label, Entry, MultiLineEntry, PasswordEntry, Separator, Hyperlink, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, Split, Tabs, Toolbar, Table, List, Center, Stack, Card, Accordion, Form, Tree, RichText, Image, Border, GridWrap, Menu, CanvasLine, CanvasCircle, CanvasRectangle, CanvasText, CanvasRaster, CanvasLinearGradient, Clip, InnerWindow, Icon };
+export type { AppOptions, WindowOptions, MenuItem, ThemeIconName };
 
 // Export theming types
 export type { CustomThemeColors, FontTextStyle, FontInfo } from './app';
@@ -564,31 +476,6 @@ export type { WidgetStyle, WidgetSelector } from './styles';
 
 // Export context menu
 export type { ContextMenuItem } from './widgets';
-
-// Export data binding
-export {
-  StringBinding,
-  BoolBinding,
-  NumberBinding,
-  IntBinding,
-  FloatBinding,
-  ComputedBinding,
-  ListBinding,
-  StringListBinding,
-  createFormBindings,
-  bindEntryToString,
-  syncToBinding
-} from './binding';
-export type { Binding, BindingListener } from './binding';
-
-// Export validation
-export {
-  validators,
-  ValidatedField,
-  FormValidator,
-  createFormValidator
-} from './validation';
-export type { ValidationResult, Validator, ValidatorFn } from './validation';
 
 // Export accessibility
 export {

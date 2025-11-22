@@ -13,7 +13,6 @@ This document tracks Fyne features **not yet implemented** in Tsyne, with sugges
 | Widget | Fyne Type | Description | Suggested Demo App |
 |--------|-----------|-------------|-------------------|
 | **Activity** | `widget.Activity` | Loading/busy spinner | `loading-states.ts` - Show spinners during async operations |
-| **Icon** | `widget.Icon` | Theme icon display | `icon-gallery.ts` - Display all available theme icons |
 | **FileIcon** | `widget.FileIcon` | File type icon | `file-browser.ts` - Simple file browser with icons |
 | **SelectEntry** | `widget.SelectEntry` | Searchable dropdown | `country-picker.ts` - Searchable country selector |
 | **CheckGroup** | `widget.CheckGroup` | Multiple checkboxes | `preferences.ts` - Settings panel with grouped options |

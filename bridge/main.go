@@ -80,6 +80,8 @@ func (b *Bridge) handleMessage(msg Message) {
 		b.handleCreateRichText(msg)
 	case "createImage":
 		b.handleCreateImage(msg)
+	case "createIcon":
+		b.handleCreateIcon(msg)
 	case "updateImage":
 		b.handleUpdateImage(msg)
 	case "registerResource":

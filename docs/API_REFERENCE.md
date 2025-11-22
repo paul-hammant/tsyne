@@ -195,6 +195,24 @@ app({ title: "My App" }, (app) => {
   - Opens URL in the default browser
   - Example: `hyperlink('Visit GitHub', 'https://github.com')`
 
+- **`icon(iconName)`**: Create a theme icon widget
+  - `iconName`: Name of the theme icon to display (see available icons below)
+  - Displays vector icons from Fyne's theme that automatically adapt to light/dark mode
+  - Example: `icon('Home')`, `icon('Settings')`, `icon('MediaPlay')`
+  - **Available icons by category:**
+    - *Navigation*: `NavigateBack`, `NavigateNext`, `Menu`, `MenuExpand`, `MenuDropDown`, `MenuDropUp`, `MoveUp`, `MoveDown`
+    - *Files*: `File`, `FileApplication`, `FileAudio`, `FileImage`, `FileText`, `FileVideo`, `Folder`, `FolderNew`, `FolderOpen`
+    - *Documents*: `Document`, `DocumentCreate`, `DocumentPrint`, `DocumentSave`
+    - *Media*: `MediaPlay`, `MediaPause`, `MediaStop`, `MediaRecord`, `MediaReplay`, `MediaMusic`, `MediaPhoto`, `MediaVideo`, `MediaFastForward`, `MediaFastRewind`, `MediaSkipNext`, `MediaSkipPrevious`
+    - *Content*: `ContentAdd`, `ContentRemove`, `ContentCopy`, `ContentCut`, `ContentPaste`, `ContentClear`, `ContentUndo`, `ContentRedo`
+    - *Status*: `Confirm`, `Cancel`, `Delete`, `Error`, `Warning`, `Info`, `Question`
+    - *Form*: `CheckButton`, `CheckButtonChecked`, `RadioButton`, `RadioButtonChecked`
+    - *General*: `Home`, `Settings`, `Help`, `Search`, `SearchReplace`, `Visibility`, `VisibilityOff`, `Account`, `Login`, `Logout`, `Upload`, `Download`, `History`, `Computer`, `Storage`, `Grid`, `List`
+    - *Mail*: `MailAttachment`, `MailCompose`, `MailForward`, `MailReply`, `MailReplyAll`, `MailSend`
+    - *View*: `ZoomFit`, `ZoomIn`, `ZoomOut`, `ViewFullScreen`, `ViewRefresh`, `ViewRestore`
+    - *Colors*: `ColorAchromatic`, `ColorChromatic`, `ColorPalette`
+    - *Other*: `MoreHorizontal`, `MoreVertical`, `VolumeMute`, `VolumeDown`, `VolumeUp`, `BrokenImage`
+
 ### UI Components
 
 - **`toolbar(items)`**: Create a toolbar with actions
