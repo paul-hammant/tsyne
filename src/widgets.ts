@@ -1774,6 +1774,51 @@ export class List {
 }
 
 /**
+ * Event data for date selection in Calendar widget
+ */
+export interface DateSelectedEvent {
+  year: number;
+  month: number;
+  day: number;
+  timestamp: number;
+}
+
+/**
+ * Calendar widget - date picker using fyne-x Calendar
+ */
+export class Calendar {
+  private ctx: Context;
+  public id: string;
+
+  constructor(ctx: Context, initialDate?: Date, onDateSelected?: (event: DateSelectedEvent) => void) {
+    this.ctx = ctx;
+    this.id = ctx.generateId('calendar');
+
+    const payload: any = { id: this.id };
+
+    if (initialDate) {
+      payload.time = initialDate.getTime();
+    }
+
+    if (onDateSelected) {
+      const callbackId = ctx.generateId('callback');
+      payload.callbackId = callbackId;
+      ctx.bridge.registerEventHandler(callbackId, (data: any) => {
+        onDateSelected({
+          year: data.year,
+          month: data.month,
+          day: data.day,
+          timestamp: data.timestamp
+        });
+      });
+    }
+
+    ctx.bridge.send('createCalendar', payload);
+    ctx.addToCurrentContainer(this.id);
+  }
+}
+
+/**
  * Center layout - centers content in the available space
  */
 export class Center {

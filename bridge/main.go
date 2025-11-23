@@ -204,6 +204,8 @@ func (b *Bridge) handleMessage(msg Message) {
 		b.handleCreateTable(msg)
 	case "createList":
 		b.handleCreateList(msg)
+	case "createCalendar":
+		b.handleCreateCalendar(msg)
 	case "updateTableData":
 		b.handleUpdateTableData(msg)
 	case "updateListData":

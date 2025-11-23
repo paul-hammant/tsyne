@@ -1,6 +1,6 @@
 import { App, AppOptions } from './app';
 import { Context } from './context';
-import { Button, Label, Entry, MultiLineEntry, PasswordEntry, Separator, Hyperlink, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, CheckGroup, Split, Tabs, DocTabs, Toolbar, ToolbarAction, Table, List, Center, Stack, Card, Accordion, Form, Tree, RichText, Image, Border, GridWrap, Menu, MenuItem, CanvasLine, CanvasCircle, CanvasRectangle, CanvasText, CanvasRaster, CanvasLinearGradient, Clip, InnerWindow, Padded, ThemeOverride, DateEntry, TextGrid, Navigation, NavigationOptions } from './widgets';
+import { Button, Label, Entry, MultiLineEntry, PasswordEntry, Separator, Hyperlink, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, CheckGroup, Split, Tabs, DocTabs, Toolbar, ToolbarAction, Table, List, Calendar, DateSelectedEvent, Center, Stack, Card, Accordion, Form, Tree, RichText, Image, Border, GridWrap, Menu, MenuItem, CanvasLine, CanvasCircle, CanvasRectangle, CanvasText, CanvasRaster, CanvasLinearGradient, Clip, InnerWindow, Padded, ThemeOverride, DateEntry, TextGrid, Navigation, NavigationOptions } from './widgets';
 import { Window, WindowOptions, ProgressDialog } from './window';
 
 // Global context for the declarative API
@@ -330,6 +330,16 @@ export function list(items: string[], onSelected?: (index: number, item: string)
 }
 
 /**
+ * Create a calendar widget (date picker)
+ */
+export function calendar(initialDate?: Date, onDateSelected?: (event: DateSelectedEvent) => void): Calendar {
+  if (!globalContext) {
+    throw new Error('calendar() must be called within an app context');
+  }
+  return new Calendar(globalContext, initialDate, onDateSelected);
+}
+
+/**
  * Create a center layout (centers content)
  */
 export function center(builder: () => void): Center {
@@ -618,8 +628,8 @@ export async function setFontScale(scale: number): Promise<void> {
 }
 
 // Export classes for advanced usage
-export { App, Window, ProgressDialog, Button, Label, Entry, MultiLineEntry, PasswordEntry, Separator, Hyperlink, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, CheckGroup, Split, Tabs, DocTabs, Toolbar, Table, List, Center, Stack, Card, Accordion, Form, Tree, RichText, Image, Border, GridWrap, Menu, CanvasLine, CanvasCircle, CanvasRectangle, CanvasText, CanvasRaster, CanvasLinearGradient, Clip, InnerWindow, Padded, ThemeOverride, DateEntry, TextGrid, Navigation };
-export type { AppOptions, WindowOptions, MenuItem, NavigationOptions };
+export { App, Window, ProgressDialog, Button, Label, Entry, MultiLineEntry, PasswordEntry, Separator, Hyperlink, VBox, HBox, Checkbox, Select, Slider, ProgressBar, Scroll, Grid, RadioGroup, CheckGroup, Split, Tabs, DocTabs, Toolbar, Table, List, Calendar, Center, Stack, Card, Accordion, Form, Tree, RichText, Image, Border, GridWrap, Menu, CanvasLine, CanvasCircle, CanvasRectangle, CanvasText, CanvasRaster, CanvasLinearGradient, Clip, InnerWindow, Padded, ThemeOverride, DateEntry, TextGrid, Navigation };
+export type { AppOptions, WindowOptions, MenuItem, NavigationOptions, DateSelectedEvent };
 
 // Export theming types
 export type { CustomThemeColors, FontTextStyle, FontInfo } from './app';
