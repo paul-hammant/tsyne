@@ -53,10 +53,10 @@ const EventType = Type.object('Event', {
   data: Type.any(),
 });
 
-// Register serializers
-const messageSerializer = fury.registerSerializer(MessageType);
-const responseSerializer = fury.registerSerializer(ResponseType);
-const eventSerializer = fury.registerSerializer(EventType);
+// Register serializers - these return objects with their own serialize/deserialize methods
+const messageSerializerObj = fury.registerSerializer(MessageType);
+const responseSerializerObj = fury.registerSerializer(ResponseType);
+const eventSerializerObj = fury.registerSerializer(EventType);
 
 /**
  * ForyBridgeConnection - Connects to tsyne-bridge via Apache Fory over Unix Domain Sockets
@@ -245,8 +245,8 @@ export class ForyBridgeConnection implements BridgeInterface {
     return new Promise((resolve, reject) => {
       this.pendingRequests.set(id, { resolve, reject });
 
-      // Serialize with Fory
-      const msgBuf = Buffer.from(fury.serialize(message, messageSerializer));
+      // Serialize with Fory using the type-specific serializer
+      const msgBuf = Buffer.from(messageSerializerObj.serialize(message));
 
       // Create frame: length (4 bytes) + message
       const frame = Buffer.alloc(4 + msgBuf.length);
