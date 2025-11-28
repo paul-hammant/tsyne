@@ -66,6 +66,7 @@ type Bridge struct {
 	polygonData     map[string]*PolygonData       // polygon widget ID -> polygon data
 	customDialogs   map[string]interface{}        // dialog ID -> custom dialog instance
 	msgpackServer   *MsgpackServer                // MessagePack UDS server (when in msgpack-uds mode)
+	foryServer      *ForyServer                   // Apache Fory UDS server (when in fory mode)
 }
 
 // ProgressDialogInfo stores information about a progress dialog
@@ -610,7 +611,12 @@ func NewBridge(testMode bool) *Bridge {
 func (b *Bridge) sendEvent(event Event) {
 	// In gRPC mode, events are sent via the gRPC stream channel
 	if b.grpcMode {
-		// Check for MessagePack server first (msgpack-uds mode)
+		// Check for Fory server first (fory mode)
+		if b.foryServer != nil {
+			b.foryServer.SendEvent(event)
+			return
+		}
+		// Check for MessagePack server (msgpack-uds mode)
 		if b.msgpackServer != nil {
 			b.msgpackServer.SendEvent(event)
 			return

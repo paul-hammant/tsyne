@@ -661,6 +661,66 @@ func runMsgpackUdsMode(testMode bool) {
 	}
 }
 
+// runForyMode runs the bridge in Apache Fory over Unix Domain Socket mode
+func runForyMode(testMode bool) {
+	// 1. Create bridge
+	bridge := NewBridge(testMode)
+	bridge.grpcMode = true // Reuse flag to skip stdout writes
+
+	// 2. Create and start Fory server
+	foryServer := NewForyServer(bridge)
+	if err := foryServer.Start(); err != nil {
+		log.Fatalf("Fory server failed to start: %v", err)
+	}
+
+	// 3. Set up event forwarding from bridge to fory server
+	bridge.foryServer = foryServer
+
+	// 4. Send connection info to TypeScript via stdout
+	initMsg := map[string]interface{}{
+		"socketPath": foryServer.GetSocketPath(),
+		"protocol":   "fory",
+	}
+	jsonData, _ := json.Marshal(initMsg)
+	os.Stdout.Write(jsonData)
+	os.Stdout.Write([]byte("\n"))
+	os.Stdout.Sync()
+
+	log.Printf("[fory] Server listening on %s", foryServer.GetSocketPath())
+
+	// 5. Keep stdin open for shutdown signal (in background)
+	shutdownChan := make(chan bool)
+	go func() {
+		scanner := bufio.NewScanner(os.Stdin)
+		for scanner.Scan() {
+			line := scanner.Text()
+			if line == "shutdown" {
+				shutdownChan <- true
+				break
+			}
+		}
+	}()
+
+	// 6. Set up shutdown handler in background
+	go func() {
+		<-shutdownChan
+		foryServer.Close()
+		log.Println("[fory] Bridge shutting down...")
+		if !testMode {
+			bridge.app.Quit()
+		}
+		os.Exit(0)
+	}()
+
+	// 7. Run the Fyne app on main goroutine (required by Fyne)
+	if !testMode {
+		bridge.app.Run()
+	} else {
+		<-shutdownChan
+		foryServer.Close()
+	}
+}
+
 // runStdioMode runs the bridge in stdio mode (existing behavior)
 func runStdioMode(testMode bool) {
 	bridge := NewBridge(testMode)
@@ -740,7 +800,7 @@ func main() {
 	}
 
 	// Parse command-line flags
-	mode := flag.String("mode", "stdio", "Communication mode: stdio, grpc, or msgpack-uds")
+	mode := flag.String("mode", "stdio", "Communication mode: stdio, grpc, msgpack-uds, or fory")
 	// Filter out --headless and --test flags before parsing, as they're not recognized by flag package
 	filteredArgs := []string{}
 	for _, arg := range os.Args[1:] {
@@ -758,6 +818,8 @@ func main() {
 		runGrpcMode(testMode)
 	case "msgpack-uds":
 		runMsgpackUdsMode(testMode)
+	case "fory":
+		runForyMode(testMode)
 	default:
 		runStdioMode(testMode)
 	}

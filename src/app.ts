@@ -1,6 +1,7 @@
 import { BridgeConnection, BridgeInterface } from './fynebridge';
 import { GrpcBridgeConnection } from './grpcbridge';
 import { MsgpackBridgeConnection } from './msgpackbridge';
+import { ForyBridgeConnection } from './forybridge';
 import { Context } from './context';
 import { Window, WindowOptions } from './window';
 import {
@@ -83,11 +84,11 @@ export type { TextGridOptions, TextGridStyle, NavigationOptions, ThemeIconName }
 import { initializeGlobals } from './globals';
 import { ResourceManager } from './resources';
 
-export type BridgeMode = 'stdio' | 'grpc' | 'msgpack-uds';
+export type BridgeMode = 'stdio' | 'grpc' | 'msgpack-uds' | 'fory';
 
 export interface AppOptions {
   title?: string;
-  /** Bridge communication mode: 'stdio' (default), 'grpc' (binary protocol), or 'msgpack-uds' (fastest) */
+  /** Bridge communication mode: 'stdio' (default), 'grpc' (binary protocol), 'msgpack-uds', or 'fory' (Apache Fory) */
   bridgeMode?: BridgeMode;
 }
 
@@ -168,7 +169,7 @@ export interface FontInfo {
 function getBridgeMode(options?: AppOptions): BridgeMode {
   // Environment variable takes precedence
   const envMode = process.env.TSYNE_BRIDGE_MODE;
-  if (envMode === 'grpc' || envMode === 'stdio' || envMode === 'msgpack-uds') {
+  if (envMode === 'grpc' || envMode === 'stdio' || envMode === 'msgpack-uds' || envMode === 'fory') {
     return envMode;
   }
   // Fall back to options or default
@@ -197,6 +198,9 @@ export class App {
         break;
       case 'msgpack-uds':
         this.bridge = new MsgpackBridgeConnection(testMode);
+        break;
+      case 'fory':
+        this.bridge = new ForyBridgeConnection(testMode);
         break;
       default:
         this.bridge = new BridgeConnection(testMode);

@@ -8,7 +8,7 @@
 import { TsyneTest } from './index-test';
 
 interface LatencyResult {
-  protocol: 'stdio' | 'grpc' | 'msgpack-uds';
+  protocol: 'stdio' | 'grpc' | 'msgpack-uds' | 'fory';
   messageCount: number;
   totalTimeMs: number;
   avgLatencyMs: number;
@@ -26,7 +26,7 @@ function percentile(sorted: number[], p: number): number {
 }
 
 async function measureLatency(
-  protocol: 'stdio' | 'grpc' | 'msgpack-uds',
+  protocol: 'stdio' | 'grpc' | 'msgpack-uds' | 'fory',
   messageCount: number
 ): Promise<LatencyResult> {
   const tsyneTest = new TsyneTest({ headed: false, bridgeMode: protocol });
@@ -127,25 +127,36 @@ describe('Protocol Latency Benchmark', () => {
     expect(result.avgLatencyMs).toBeLessThan(100);
   }, 60000);
 
+  test('measure fory latency', async () => {
+    const result = await measureLatency('fory', MESSAGE_COUNT);
+    console.log(formatResult(result));
+
+    expect(result.avgLatencyMs).toBeGreaterThan(0);
+    expect(result.avgLatencyMs).toBeLessThan(100);
+  }, 60000);
+
   test('compare all protocols latency', async () => {
     console.log('\n========================================');
     console.log('     PROTOCOL LATENCY COMPARISON');
     console.log('========================================');
 
-    // Run all three protocols
+    // Run all four protocols
     const stdioResult = await measureLatency('stdio', MESSAGE_COUNT);
     const grpcResult = await measureLatency('grpc', MESSAGE_COUNT);
     const msgpackResult = await measureLatency('msgpack-uds', MESSAGE_COUNT);
+    const foryResult = await measureLatency('fory', MESSAGE_COUNT);
 
     console.log(formatResult(stdioResult));
     console.log(formatResult(grpcResult));
     console.log(formatResult(msgpackResult));
+    console.log(formatResult(foryResult));
 
     // Find winner (lowest latency)
     const results = [
       { name: 'stdio', result: stdioResult },
       { name: 'gRPC', result: grpcResult },
       { name: 'msgpack-uds', result: msgpackResult },
+      { name: 'fory', result: foryResult },
     ];
     results.sort((a, b) => a.result.avgLatencyMs - b.result.avgLatencyMs);
     const winner = results[0];
@@ -159,21 +170,23 @@ describe('Protocol Latency Benchmark', () => {
     console.log(`  stdio:       ${stdioResult.avgLatencyMs.toFixed(3)}ms`);
     console.log(`  gRPC:        ${grpcResult.avgLatencyMs.toFixed(3)}ms`);
     console.log(`  msgpack-uds: ${msgpackResult.avgLatencyMs.toFixed(3)}ms`);
+    console.log(`  fory:        ${foryResult.avgLatencyMs.toFixed(3)}ms`);
     console.log('');
     console.log('Throughput (msg/sec):');
     console.log(`  stdio:       ${stdioResult.messagesPerSecond.toFixed(1)}`);
     console.log(`  gRPC:        ${grpcResult.messagesPerSecond.toFixed(1)}`);
     console.log(`  msgpack-uds: ${msgpackResult.messagesPerSecond.toFixed(1)}`);
+    console.log(`  fory:        ${foryResult.messagesPerSecond.toFixed(1)}`);
 
     // No assertion on which is faster - just report
-  }, 180000);
+  }, 240000);
 
   test('burst message test (rapid fire)', async () => {
     console.log('\n========================================');
     console.log('     BURST MESSAGE TEST (50 rapid)');
     console.log('========================================');
 
-    for (const protocol of ['stdio', 'grpc', 'msgpack-uds'] as const) {
+    for (const protocol of ['stdio', 'grpc', 'msgpack-uds', 'fory'] as const) {
       const tsyneTest = new TsyneTest({ headed: false, bridgeMode: protocol });
 
       try {
