@@ -1,0 +1,536 @@
+# Pixeledit Port - Implementation Plan
+
+This document outlines the remaining work to complete the pixeledit port from the original Fyne implementation to Tsyne.
+
+## Reference
+- **Original**: `/home/paul/scm/tsyne/ported-apps/pixeledit-ORIG/`
+- **Port**: `/home/paul/scm/tsyne/ported-apps/pixeledit/`
+- **Original Repo**: https://github.com/fyne-io/pixeledit
+
+## Current Status (Completed Features)
+
+### ✅ Core Infrastructure
+- [x] Basic application structure
+- [x] Tool interface and architecture
+- [x] Color class with hex conversion
+- [x] TappableCanvasRaster integration
+- [x] Pixel buffer management (Uint8ClampedArray)
+- [x] Image loading from file/command line args
+- [x] Main window setup
+- [x] Status bar with file info
+
+### ✅ File Operations
+- [x] File loading (PNG, JPG support)
+- [x] Recent files history (preference-based)
+- [x] File open dialog
+- [x] Main menu structure
+- [x] Image format detection and conversion
+
+### ✅ UI Components
+- [x] Foreground color preview rectangle
+- [x] Zoom controls (power-of-2: 1x, 2x, 4x, 8x, 16x)
+- [x] Tool palette/toolbar
+- [x] Interactive canvas with tap handling
+- [x] Scroll container for large images
+
+### ✅ Basic Tools
+- [x] Pencil tool (draw pixels)
+- [x] Picker/Eyedropper tool (sample colors)
+- [x] Eraser tool (draw white pixels)
+
+### ✅ Advanced Tools (Enhancements)
+- [x] Bucket fill tool with BFS flood fill
+- [x] Line drawing tool with Bresenham's algorithm
+
+### ✅ Testing
+- [x] Tool tests (bucket fill, line drawing)
+- [x] Basic editor tests
+- [x] Pencil tool tests
+
+---
+
+## Phase 1: Missing Core Features
+
+### 1.1 File Save Operations
+**Files to reference**:
+- `pixeledit-ORIG/internal/ui/editor.go` (lines 184-216)
+- `pixeledit-ORIG/internal/ui/main.go` (lines 43-62)
+
+**Implementation**:
+- [ ] Implement `saveImage()` method to write PNG files
+  - Use `sharp` or `canvas` npm package for PNG encoding
+  - Convert Uint8ClampedArray pixel buffer to PNG
+  - Write to file system
+- [ ] Add "Save" menu item handler
+- [ ] Add "Save As..." dialog with file picker
+- [ ] Update current file path after save
+- [ ] Add file extension validation (.png only initially)
+
+**Test Requirements**:
+- [ ] Test saving new image
+- [ ] Test save overwrites existing file
+- [ ] Test save as creates new file
+- [ ] Test saved file can be reloaded
+- [ ] Test pixel data integrity after save/reload cycle
+
+### 1.2 File Reload/Reset Operation
+**Files to reference**:
+- `pixeledit-ORIG/internal/ui/main.go` (lines 31-41)
+- `pixeledit-ORIG/internal/ui/editor.go` (lines 170-182)
+
+**Implementation**:
+- [ ] Add "Reset..." menu item
+- [ ] Implement reload functionality to restore original file
+- [ ] Add confirmation dialog before reload
+- [ ] Clear any unsaved changes
+
+**Test Requirements**:
+- [ ] Test reload restores original pixels
+- [ ] Test reload works after multiple edits
+- [ ] Test reload updates canvas display
+
+---
+
+## Phase 2: Additional Drawing Tools
+
+### 2.1 Rectangle Tool
+**Files to reference**: Similar pattern to Line tool
+
+**Implementation**:
+- [ ] Create RectangleTool class
+- [ ] Two-click interface: first click = corner, second = opposite corner
+- [ ] Options: filled vs outline
+- [ ] Use foreground color
+
+**Test Requirements**:
+- [ ] Test horizontal rectangles
+- [ ] Test vertical rectangles
+- [ ] Test square shapes
+- [ ] Test single-pixel rectangles
+- [ ] Test filled vs outline modes
+
+### 2.2 Circle/Ellipse Tool
+**Implementation**:
+- [ ] Create CircleTool class
+- [ ] Two-click interface: center and radius point
+- [ ] Midpoint circle algorithm or Bresenham circle
+- [ ] Options: filled vs outline
+
+**Test Requirements**:
+- [ ] Test perfect circles
+- [ ] Test ellipses
+- [ ] Test single-pixel circles
+- [ ] Test filled vs outline modes
+
+---
+
+## Phase 3: Color Management
+
+### 3.1 Background Color
+**Files to reference**:
+- `pixeledit-ORIG/internal/ui/editor.go` (bgColor field)
+
+**Implementation**:
+- [ ] Add `bgColor` field to PixelEditor
+- [ ] Add BG color preview rectangle
+- [ ] Add color picker dialog for BG color
+- [ ] Update eraser tool to use BG color instead of hardcoded white
+- [ ] Add keyboard shortcut to swap FG/BG colors
+
+**Test Requirements**:
+- [ ] Test BG color picker updates preview
+- [ ] Test eraser uses BG color
+- [ ] Test FG/BG swap functionality
+
+### 3.2 Color Palette/Swatches
+**Files to reference**:
+- `pixeledit-ORIG/internal/ui/palette.go`
+
+**Implementation**:
+- [ ] Add predefined color palette (16-24 common colors)
+- [ ] Click swatch to set FG color
+- [ ] Right-click swatch to set BG color
+- [ ] Display palette in sidebar
+
+**Test Requirements**:
+- [ ] Test clicking swatch updates FG color
+- [ ] Test palette displays all colors correctly
+
+---
+
+## Phase 4: Advanced Features
+
+### 4.1 Undo/Redo System
+**Implementation**:
+- [ ] Create history stack for pixel changes
+- [ ] Store before/after states for each operation
+- [ ] Implement undo() method
+- [ ] Implement redo() method
+- [ ] Add Ctrl+Z / Ctrl+Y keyboard shortcuts
+- [ ] Add Edit menu with Undo/Redo items
+- [ ] Limit history depth (e.g., 50 operations)
+
+**Test Requirements**:
+- [ ] Test undo single pixel change
+- [ ] Test undo flood fill
+- [ ] Test undo line drawing
+- [ ] Test redo after undo
+- [ ] Test undo stack limit
+- [ ] Test history cleared on file load
+
+### 4.2 Selection Tool
+**Implementation**:
+- [ ] Rectangle selection tool
+- [ ] Selection marquee display (animated dashed line)
+- [ ] Cut/Copy/Paste operations
+- [ ] Move selection
+- [ ] Delete selection (fill with BG color)
+
+**Test Requirements**:
+- [ ] Test creating selection
+- [ ] Test copy/paste preserves pixels
+- [ ] Test cut removes and copies pixels
+- [ ] Test move selection updates pixels
+- [ ] Test delete fills with BG color
+
+### 4.3 Pencil Width/Brush Sizes
+**Implementation**:
+- [ ] Add brush size selector (1px, 2px, 4px, 8px)
+- [ ] Update pencil tool to draw in selected size
+- [ ] Display brush size in UI
+- [ ] Square vs circle brush shapes
+
+**Test Requirements**:
+- [ ] Test different brush sizes
+- [ ] Test brush size applied to drawing
+- [ ] Test square vs circle brush shapes
+
+---
+
+## Phase 5: Canvas Enhancements
+
+### 5.1 Grid Overlay
+**Implementation**:
+- [ ] Add toggle for grid display
+- [ ] Draw grid lines at pixel boundaries
+- [ ] Grid visible only at zoom >= 4x
+- [ ] Configurable grid color
+
+**Test Requirements**:
+- [ ] Test grid displays at high zoom
+- [ ] Test grid hidden at low zoom
+- [ ] Test grid toggle works
+
+### 5.2 Canvas Resize
+**Files to reference**:
+- `pixeledit-ORIG/internal/ui/editor.go` (image resizing logic)
+
+**Implementation**:
+- [ ] Add "Resize Canvas..." dialog
+- [ ] Input fields for width/height
+- [ ] Options: scale, crop, or pad with BG color
+- [ ] Maintain aspect ratio option
+
+**Test Requirements**:
+- [ ] Test upscaling preserves pixels
+- [ ] Test downscaling crops correctly
+- [ ] Test padding adds BG color
+- [ ] Test aspect ratio maintenance
+
+### 5.3 New Image Creation
+**Implementation**:
+- [ ] Add "New..." menu item
+- [ ] Dialog with width/height inputs
+- [ ] Default to 32x32 white canvas
+- [ ] Fill with BG color option
+
+**Test Requirements**:
+- [ ] Test creates blank canvas
+- [ ] Test specified dimensions
+- [ ] Test default size
+- [ ] Test fills with BG color
+
+---
+
+## Phase 6: Image Effects
+
+### 6.1 Color Inversion
+**Files to reference**:
+- `pixeledit-ORIG/internal/data/invert.svg` (invert icon exists)
+
+**Implementation**:
+- [ ] Add "Invert Colors" menu item
+- [ ] For each pixel: RGB = 255 - RGB
+- [ ] Preserve alpha channel
+- [ ] Add to Edit menu
+
+**Test Requirements**:
+- [ ] Test inverts all pixels
+- [ ] Test preserves alpha
+- [ ] Test invert twice returns to original
+
+### 6.2 Flip/Rotate
+**Implementation**:
+- [ ] Flip horizontal
+- [ ] Flip vertical
+- [ ] Rotate 90° CW
+- [ ] Rotate 90° CCW
+- [ ] Rotate 180°
+
+**Test Requirements**:
+- [ ] Test each flip/rotate operation
+- [ ] Test preserves pixel data
+- [ ] Test dimensions update correctly
+
+---
+
+## Phase 7: UI Polish
+
+### 7.1 Keyboard Shortcuts
+**Implementation**:
+- [ ] Ctrl+O - Open file
+- [ ] Ctrl+S - Save
+- [ ] Ctrl+Shift+S - Save As
+- [ ] Ctrl+Z - Undo
+- [ ] Ctrl+Y - Redo
+- [ ] + / - keys - Zoom in/out
+- [ ] Space - Pan tool (hold)
+- [ ] P - Pencil tool
+- [ ] E - Eraser tool
+- [ ] I - Picker tool
+- [ ] B - Bucket tool
+- [ ] L - Line tool
+
+### 7.2 Status Bar Enhancements
+**Files to reference**:
+- `pixeledit-ORIG/internal/ui/status.go`
+
+**Implementation**:
+- [ ] Show cursor pixel coordinates
+- [ ] Show color under cursor
+- [ ] Show current tool name
+- [ ] Show zoom percentage
+- [ ] Show image dimensions
+- [ ] Show unsaved changes indicator
+
+### 7.3 Tool Icons
+**Files to reference**:
+- `pixeledit-ORIG/internal/data/*.svg`
+
+**Implementation**:
+- [ ] Create SVG icons for each tool
+- [ ] Use Tsyne icon support (if available)
+- [ ] Fallback to text labels
+- [ ] Highlight selected tool
+
+---
+
+## Phase 8: Testing Suite Completion
+
+### 8.1 Core Editor Tests
+**Files to reference**:
+- `pixeledit-ORIG/internal/ui/editor_test.go`
+- `pixeledit-ORIG/internal/ui/palette_test.go`
+- `pixeledit-ORIG/internal/ui/raster_test.go`
+
+**Test Coverage Needed**:
+- [ ] `PixelEditor.getPixelColor()` - read pixel at coordinates
+- [ ] `PixelEditor.setPixelColor()` - write pixel at coordinates
+- [ ] `PixelEditor.setFGColor()` - update foreground color
+- [ ] `PixelEditor.getFGColor()` - read foreground color
+- [ ] `PixelEditor.loadImage()` - load from file
+- [ ] `PixelEditor.saveImage()` - save to PNG
+- [ ] `PixelEditor.reload()` - reset to original file
+- [ ] Zoom level changes update display
+- [ ] Tool switching works correctly
+- [ ] Recent files list management
+- [ ] Out-of-bounds pixel access returns safe values
+
+### 8.2 Tool Tests
+**Files to reference**:
+- `pixeledit-ORIG/internal/tool/pencil_test.go`
+- `pixeledit-ORIG/internal/tool/picker_test.go`
+- `pixeledit-ORIG/internal/tool/util_test.go`
+
+**Test Coverage Needed**:
+- [ ] Each tool has name and icon
+- [ ] Pencil draws with FG color
+- [ ] Picker samples color correctly
+- [ ] Eraser draws with BG color
+- [ ] Rectangle tool draws correctly
+- [ ] Circle tool draws correctly
+- [ ] Selection tool creates valid selections
+
+### 8.3 Integration Tests
+**Test Coverage Needed**:
+- [ ] Load image → Edit → Save → Reload validates data
+- [ ] Tool switching mid-operation works
+- [ ] Zoom changes don't affect pixel data
+- [ ] Undo/Redo maintains consistency
+- [ ] Copy/Paste preserves pixel colors
+- [ ] Recent files survive app restart
+
+### 8.4 Edge Case Tests
+**Test Coverage Needed**:
+- [ ] Loading corrupted image files
+- [ ] Loading unsupported formats
+- [ ] Saving to read-only directory
+- [ ] Drawing outside canvas bounds
+- [ ] Zero-dimension images
+- [ ] Maximum zoom level
+- [ ] Flood fill on entire canvas
+- [ ] Extremely large images (1000x1000+)
+
+---
+
+## Phase 9: Bridge Enhancements (Fyne+Go Layer)
+
+### 9.1 Image Export
+**Bridge work needed**:
+- [ ] Add PNG export capability to Go bridge
+- [ ] Add method to retrieve pixel buffer from TappableCanvasRaster
+- [ ] Use Go's `image/png` package for encoding
+- [ ] Return file path or success status to TypeScript
+
+### 9.2 Image Import
+**Bridge work needed**:
+- [ ] Enhance image loading to support more formats
+- [ ] Add resize/scale during load
+- [ ] Support loading from URLs
+- [ ] Support clipboard paste
+
+### 9.3 Performance Optimizations
+**Bridge work needed**:
+- [ ] Batch pixel updates for flood fill and large operations
+- [ ] Add dirty rectangle tracking (only redraw changed areas)
+- [ ] Optimize zoom rendering (don't recreate entire buffer)
+- [ ] Consider GPU acceleration for large images
+
+---
+
+## Phase 10: Documentation
+
+### 10.1 User Documentation
+- [ ] README with feature list
+- [ ] Keyboard shortcuts reference
+- [ ] Tool usage guide
+- [ ] File format support
+- [ ] Known limitations
+
+### 10.2 Developer Documentation
+- [ ] Architecture overview
+- [ ] Tool creation guide
+- [ ] Adding new file formats
+- [ ] Testing strategy
+- [ ] Port differences from original
+
+---
+
+## Implementation Priority
+
+### High Priority (MVP Features)
+1. File save operations (Phase 1.1)
+2. File reload (Phase 1.2)
+3. Background color support (Phase 3.1)
+4. Basic undo/redo (Phase 4.1 - limited depth)
+5. Rectangle tool (Phase 2.1)
+6. Status bar enhancements (Phase 7.2)
+
+### Medium Priority (Enhanced UX)
+7. Color palette/swatches (Phase 3.2)
+8. Circle tool (Phase 2.2)
+9. Keyboard shortcuts (Phase 7.1)
+10. Grid overlay (Phase 5.1)
+11. New image creation (Phase 5.3)
+12. Canvas resize (Phase 5.2)
+
+### Lower Priority (Advanced Features)
+13. Selection tool (Phase 4.2)
+14. Brush sizes (Phase 4.3)
+15. Image effects (Phase 6)
+16. Tool icons (Phase 7.3)
+
+### Continuous
+17. Testing (Phase 8) - ongoing with each feature
+18. Documentation (Phase 10) - updated as features are added
+19. Bridge enhancements (Phase 9) - as needed
+
+---
+
+## Notes on Differences from Original
+
+### Intentional Deviations
+- **Added Tools**: Bucket fill and Line tool (not in original)
+- **Test Framework**: Jest instead of Go's testing package
+- **File Handling**: Node.js fs module instead of Fyne's storage API
+- **Image Processing**: May use different libraries than Go's image package
+
+### Technical Constraints
+- **Tsyne Limitations**: Some Fyne features may not have Tsyne equivalents
+- **Browser Limitations**: File system access more restricted than desktop
+- **Performance**: TypeScript vs Go performance characteristics
+
+### Enhancements Over Original
+- **Modern Testing**: Comprehensive test coverage from the start
+- **Cleaner Architecture**: Tool interface designed for testability
+- **Better Pixel Management**: Direct buffer access for performance
+
+---
+
+## Success Criteria
+
+The port is considered complete when:
+1. ✅ All tools from original are implemented and tested
+2. ⏳ File save/load works reliably for PNG format
+3. ⏳ Undo/redo system functional
+4. ⏳ Zoom and navigation work smoothly
+5. ⏳ Recent files history persists
+6. ⏳ All original test cases pass (adapted to Jest)
+7. ⏳ 80%+ code coverage on core functionality
+8. ⏳ No critical bugs in common workflows
+9. ⏳ Documentation complete
+10. ✅ Enhanced with bucket fill and line tools (bonus features)
+
+---
+
+## Test File Organization
+
+```
+pixeledit/
+├── pixeledit.ts                    # Main application
+├── pixeledit.test.ts               # Editor core tests
+├── pixeledit-tools.test.ts         # Bucket & Line tool tests (exists)
+├── pixeledit-pencil.test.ts        # Pencil tool tests (exists)
+├── pixeledit-file-ops.test.ts      # TODO: Save/Load tests
+├── pixeledit-color.test.ts         # TODO: Color management tests
+├── pixeledit-undo.test.ts          # TODO: Undo/redo tests
+├── pixeledit-selection.test.ts     # TODO: Selection tool tests
+└── PLAN.md                         # This file
+```
+
+---
+
+## Current Test Coverage
+
+### Passing Tests (11 tests)
+- ✅ Bucket Fill Tool (5 tests)
+  - Fill entire canvas
+  - Fill connected region
+  - No-op when colors match
+  - Single pixel fill
+  - Diagonal separation
+
+- ✅ Line Drawing Tool (6 tests)
+  - Horizontal lines
+  - Vertical lines
+  - Diagonal lines
+  - Single pixel (start == end)
+  - Steep lines
+  - State reset between lines
+
+### TODO Tests
+- File operations (save, load, reload)
+- Color picker integration
+- Zoom functionality
+- Tool switching
+- Edge cases and error handling

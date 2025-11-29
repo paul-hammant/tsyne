@@ -18,6 +18,7 @@ import { app } from '../../src';
 import type { App } from '../../src/app';
 import type { Window } from '../../src/window';
 import type { CanvasRectangle } from '../../src/widgets/canvas';
+import { TappableCanvasRaster } from '../../src/widgets/canvas';
 
 // Constants
 const MAX_RECENT_FILES = 5;
@@ -31,7 +32,7 @@ const RECENT_FORMAT_KEY = 'pixeledit_recent_';
 interface Tool {
   name: string;
   icon?: string;
-  clicked(x: number, y: number): void;
+  clicked(x: number, y: number): void | Promise<void>;
 }
 
 /**
@@ -74,8 +75,8 @@ class PencilTool implements Tool {
 
   constructor(private editor: PixelEditor) {}
 
-  clicked(x: number, y: number): void {
-    this.editor.setPixelColor(x, y, this.editor.fgColor);
+  async clicked(x: number, y: number): Promise<void> {
+    await this.editor.setPixelColor(x, y, this.editor.fgColor);
     console.log(`Pencil: Drew at (${x}, ${y}) with color ${this.editor.fgColor.toHex()}`);
   }
 }
@@ -98,6 +99,161 @@ class PickerTool implements Tool {
 }
 
 /**
+ * Eraser tool - erases pixels by setting them to white
+ * Based on: internal/tool/eraser.go
+ */
+class EraserTool implements Tool {
+  name = 'Eraser';
+  icon = 'Eraser';
+
+  constructor(private editor: PixelEditor) {}
+
+  async clicked(x: number, y: number): Promise<void> {
+    await this.editor.setPixelColor(x, y, new Color(255, 255, 255, 255));
+    console.log(`Eraser: Erased pixel at (${x}, ${y})`);
+  }
+}
+
+/**
+ * Bucket fill tool - flood fills an area with the current foreground color
+ * Based on: internal/tool/bucket.go
+ */
+class BucketTool implements Tool {
+  name = 'Bucket';
+  icon = 'Bucket';
+
+  constructor(private editor: PixelEditor) {}
+
+  async clicked(x: number, y: number): Promise<void> {
+    const targetColor = this.editor.getPixelColor(x, y);
+    const fillColor = this.editor.fgColor;
+
+    // Don't fill if target and fill colors are the same
+    if (this.colorsEqual(targetColor, fillColor)) {
+      console.log(`Bucket: Target and fill colors are same, skipping fill`);
+      return;
+    }
+
+    console.log(`Bucket: Filling from (${x}, ${y}) with ${fillColor.toHex()}`);
+    await this.floodFill(x, y, targetColor, fillColor);
+  }
+
+  private colorsEqual(c1: Color, c2: Color): boolean {
+    return c1.r === c2.r && c1.g === c2.g && c1.b === c2.b && c1.a === c2.a;
+  }
+
+  /**
+   * Flood fill algorithm using a queue (BFS approach)
+   * More efficient than recursive approach for large areas
+   */
+  private async floodFill(startX: number, startY: number, targetColor: Color, fillColor: Color): Promise<void> {
+    const queue: Array<{x: number; y: number}> = [{x: startX, y: startY}];
+    const visited = new Set<string>();
+    const pixelsToUpdate: Array<{x: number; y: number}> = [];
+
+    while (queue.length > 0) {
+      const {x, y} = queue.shift()!;
+      const key = `${x},${y}`;
+
+      // Skip if already visited or out of bounds
+      if (visited.has(key) || x < 0 || x >= this.editor.getImageWidth() || y < 0 || y >= this.editor.getImageHeight()) {
+        continue;
+      }
+
+      visited.add(key);
+
+      // Check if this pixel matches the target color
+      const currentColor = this.editor.getPixelColor(x, y);
+      if (!this.colorsEqual(currentColor, targetColor)) {
+        continue;
+      }
+
+      // Add to pixels to update
+      pixelsToUpdate.push({x, y});
+
+      // Add neighbors to queue
+      queue.push({x: x + 1, y});
+      queue.push({x: x - 1, y});
+      queue.push({x, y: y + 1});
+      queue.push({x, y: y - 1});
+    }
+
+    // Update all pixels at once for better performance
+    console.log(`Bucket: Filling ${pixelsToUpdate.length} pixels`);
+    for (const {x, y} of pixelsToUpdate) {
+      await this.editor.setPixelColor(x, y, fillColor);
+    }
+  }
+}
+
+/**
+ * Line drawing tool - draws straight lines using Bresenham's algorithm
+ */
+class LineTool implements Tool {
+  name = 'Line';
+  icon = 'Line';
+  private startX: number | null = null;
+  private startY: number | null = null;
+  private isDrawing = false;
+
+  constructor(private editor: PixelEditor) {}
+
+  async clicked(x: number, y: number): Promise<void> {
+    if (!this.isDrawing) {
+      // First click - set start point
+      this.startX = x;
+      this.startY = y;
+      this.isDrawing = true;
+      console.log(`Line: Started at (${x}, ${y})`);
+    } else {
+      // Second click - draw line to end point
+      if (this.startX !== null && this.startY !== null) {
+        await this.drawLine(this.startX, this.startY, x, y);
+        console.log(`Line: Drew from (${this.startX}, ${this.startY}) to (${x}, ${y})`);
+      }
+      // Reset state
+      this.startX = null;
+      this.startY = null;
+      this.isDrawing = false;
+    }
+  }
+
+  /**
+   * Bresenham's line algorithm for drawing straight lines
+   */
+  private async drawLine(x0: number, y0: number, x1: number, y1: number): Promise<void> {
+    const color = this.editor.fgColor;
+    const dx = Math.abs(x1 - x0);
+    const dy = Math.abs(y1 - y0);
+    const sx = x0 < x1 ? 1 : -1;
+    const sy = y0 < y1 ? 1 : -1;
+    let err = dx - dy;
+
+    let x = x0;
+    let y = y0;
+
+    while (true) {
+      // Draw pixel at current position
+      await this.editor.setPixelColor(x, y, color);
+
+      // Check if we've reached the end
+      if (x === x1 && y === y1) break;
+
+      // Calculate error and step to next pixel
+      const e2 = 2 * err;
+      if (e2 > -dy) {
+        err -= dy;
+        x += sx;
+      }
+      if (e2 < dx) {
+        err += dx;
+        y += sy;
+      }
+    }
+  }
+}
+
+/**
  * PixelEditor - main editor class managing image state and operations
  * Based on: internal/api/editor.go and internal/ui/editor.go
  */
@@ -115,6 +271,7 @@ class PixelEditor {
   private zoomLabel: any = null;
   private colorLabel: any = null;
   private fgPreview: CanvasRectangle | null = null;
+  private canvasRaster: TappableCanvasRaster | null = null; // Interactive raster canvas
   private win: Window | null = null;
   private recentFiles: string[] = [];
 
@@ -122,7 +279,10 @@ class PixelEditor {
     // Initialize tools
     this.tools = [
       new PencilTool(this),
-      new PickerTool(this)
+      new PickerTool(this),
+      new EraserTool(this),
+      new BucketTool(this),
+      new LineTool(this)
     ];
     this.currentTool = this.tools[0]; // Default to pencil
 
@@ -173,6 +333,12 @@ class PixelEditor {
   }
 
   /**
+   * Get image dimensions
+   */
+  getImageWidth(): number { return this.imageWidth; }
+  getImageHeight(): number { return this.imageHeight; }
+
+  /**
    * Get pixel color at coordinates
    * Based on: editor.go PixelColor()
    */
@@ -196,7 +362,7 @@ class PixelEditor {
    * Set pixel color at coordinates
    * Based on: editor.go SetPixelColor()
    */
-  setPixelColor(x: number, y: number, color: Color): void {
+  async setPixelColor(x: number, y: number, color: Color): Promise<void> {
     if (!this.pixels) return;
 
     const index = (y * this.imageWidth + x) * 4;
@@ -206,6 +372,29 @@ class PixelEditor {
     this.pixels[index + 1] = color.g;
     this.pixels[index + 2] = color.b;
     this.pixels[index + 3] = color.a;
+
+    // Update the visual raster if it exists
+    // Each logical pixel becomes zoom×zoom pixels in the zoomed raster
+    if (this.canvasRaster) {
+      const updates: Array<{x: number; y: number; r: number; g: number; b: number; a: number}> = [];
+
+      for (let dy = 0; dy < this.zoom; dy++) {
+        for (let dx = 0; dx < this.zoom; dx++) {
+          const rasterX = x * this.zoom + dx;
+          const rasterY = y * this.zoom + dy;
+          updates.push({
+            x: rasterX,
+            y: rasterY,
+            r: color.r,
+            g: color.g,
+            b: color.b,
+            a: color.a
+          });
+        }
+      }
+
+      await this.canvasRaster.setPixels(updates);
+    }
 
     this.updateStatus();
   }
@@ -427,6 +616,11 @@ class PixelEditor {
     await this.loadRecentFiles();
     this.updateMainMenu();
 
+    // Create initial blank image if no pixels exist
+    if (!this.pixels) {
+      this.createBlankImage(32, 32);
+    }
+
     this.a.border({
       top: () => {
         // Top toolbar
@@ -508,11 +702,52 @@ class PixelEditor {
   private buildCanvas(): void {
     this.a.scroll(() => {
       this.a.center(() => {
-        this.a.vbox(() => {
-          this.a.label('Pixel canvas will be rendered here');
-          this.a.label('(Interactive raster widget needed for full functionality)');
-          // TODO: Implement interactive raster with click-to-pixel conversion
-        });
+        // Create a CanvasRaster widget to display the pixel image
+        // The raster will be scaled by the zoom factor
+        const zoomedWidth = this.imageWidth * this.zoom;
+        const zoomedHeight = this.imageHeight * this.zoom;
+
+        // Create the raster with initial pixel data
+        // Each pixel in the original image becomes zoom×zoom pixels in the raster
+        const pixelArray: Array<[number, number, number, number]> = [];
+        for (let y = 0; y < zoomedHeight; y++) {
+          for (let x = 0; x < zoomedWidth; x++) {
+            const pixX = Math.floor(x / this.zoom);
+            const pixY = Math.floor(y / this.zoom);
+            const idx = (pixY * this.imageWidth + pixX) * 4;
+            if (this.pixels && idx >= 0 && idx < this.pixels.length) {
+              pixelArray.push([
+                this.pixels[idx],
+                this.pixels[idx + 1],
+                this.pixels[idx + 2],
+                this.pixels[idx + 3]
+              ]);
+            } else {
+              pixelArray.push([255, 255, 255, 255]); // White for out of bounds
+            }
+          }
+        }
+
+        // Create tappable raster with tap handler
+        this.canvasRaster = new TappableCanvasRaster(
+          this.a.getContext(),
+          zoomedWidth,
+          zoomedHeight,
+          pixelArray,
+          (screenX: number, screenY: number) => {
+            // Convert screen coordinates to pixel coordinates by dividing by zoom
+            const pixelX = Math.floor(screenX / this.zoom);
+            const pixelY = Math.floor(screenY / this.zoom);
+
+            // Bounds checking
+            if (pixelX < 0 || pixelX >= this.imageWidth || pixelY < 0 || pixelY >= this.imageHeight) {
+              return;
+            }
+
+            // Delegate to current tool
+            this.currentTool.clicked(pixelX, pixelY);
+          }
+        );
       });
     });
   }
