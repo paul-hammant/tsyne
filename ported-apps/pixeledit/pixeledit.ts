@@ -9,9 +9,11 @@
  * - Main menu with File operations
  * - File dialogs for Open/Save
  * - Recent files history (stored in preferences)
- * - Color picker for foreground color selection
+ * - Color picker for foreground/background color selection
  * - Power-of-2 zoom (100%, 200%, 400%, etc.)
- * - FG color preview rectangle
+ * - FG/BG color preview rectangles
+ * - Undo/Redo system
+ * - Multiple drawing tools (Pencil, Picker, Eraser, Bucket, Line, Rectangle)
  */
 
 import { app } from '../../src';
@@ -19,11 +21,14 @@ import type { App } from '../../src/app';
 import type { Window } from '../../src/window';
 import type { CanvasRectangle } from '../../src/widgets/canvas';
 import { TappableCanvasRaster } from '../../src/widgets/canvas';
+import * as fs from 'fs';
+import * as path from 'path';
 
 // Constants
 const MAX_RECENT_FILES = 5;
 const RECENT_COUNT_KEY = 'pixeledit_recentCount';
 const RECENT_FORMAT_KEY = 'pixeledit_recent_';
+const MAX_UNDO_HISTORY = 50;
 
 /**
  * Tool interface - defines the contract for editing tools
@@ -63,6 +68,32 @@ class Color {
       parseInt(result[3], 16)
     );
   }
+
+  equals(other: Color): boolean {
+    return this.r === other.r && this.g === other.g && this.b === other.b && this.a === other.a;
+  }
+
+  clone(): Color {
+    return new Color(this.r, this.g, this.b, this.a);
+  }
+}
+
+/**
+ * Represents a single pixel change for undo/redo
+ */
+interface PixelChange {
+  x: number;
+  y: number;
+  oldColor: Color;
+  newColor: Color;
+}
+
+/**
+ * Represents a batch of pixel changes (one operation)
+ */
+interface UndoOperation {
+  changes: PixelChange[];
+  description: string;
 }
 
 /**
@@ -99,7 +130,7 @@ class PickerTool implements Tool {
 }
 
 /**
- * Eraser tool - erases pixels by setting them to white
+ * Eraser tool - erases pixels by setting them to background color
  * Based on: internal/tool/eraser.go
  */
 class EraserTool implements Tool {
@@ -109,8 +140,8 @@ class EraserTool implements Tool {
   constructor(private editor: PixelEditor) {}
 
   async clicked(x: number, y: number): Promise<void> {
-    await this.editor.setPixelColor(x, y, new Color(255, 255, 255, 255));
-    console.log(`Eraser: Erased pixel at (${x}, ${y})`);
+    await this.editor.setPixelColor(x, y, this.editor.bgColor);
+    console.log(`Eraser: Erased pixel at (${x}, ${y}) with BG color ${this.editor.bgColor.toHex()}`);
   }
 }
 
@@ -254,6 +285,158 @@ class LineTool implements Tool {
 }
 
 /**
+ * Rectangle tool - draws rectangles (filled or outline)
+ */
+class RectangleTool implements Tool {
+  name = 'Rectangle';
+  icon = 'Rectangle';
+  private startX: number | null = null;
+  private startY: number | null = null;
+  private isDrawing = false;
+  public filled = false; // Can be toggled via UI
+
+  constructor(private editor: PixelEditor) {}
+
+  async clicked(x: number, y: number): Promise<void> {
+    if (!this.isDrawing) {
+      // First click - set start corner
+      this.startX = x;
+      this.startY = y;
+      this.isDrawing = true;
+      console.log(`Rectangle: Started at (${x}, ${y})`);
+    } else {
+      // Second click - draw rectangle to end corner
+      if (this.startX !== null && this.startY !== null) {
+        await this.drawRectangle(this.startX, this.startY, x, y);
+        console.log(`Rectangle: Drew from (${this.startX}, ${this.startY}) to (${x}, ${y})`);
+      }
+      // Reset state
+      this.startX = null;
+      this.startY = null;
+      this.isDrawing = false;
+    }
+  }
+
+  /**
+   * Draw a rectangle from (x0, y0) to (x1, y1)
+   */
+  private async drawRectangle(x0: number, y0: number, x1: number, y1: number): Promise<void> {
+    const color = this.editor.fgColor;
+    const minX = Math.min(x0, x1);
+    const maxX = Math.max(x0, x1);
+    const minY = Math.min(y0, y1);
+    const maxY = Math.max(y0, y1);
+
+    if (this.filled) {
+      // Filled rectangle
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          await this.editor.setPixelColor(x, y, color);
+        }
+      }
+    } else {
+      // Outline only
+      // Top and bottom edges
+      for (let x = minX; x <= maxX; x++) {
+        await this.editor.setPixelColor(x, minY, color);
+        await this.editor.setPixelColor(x, maxY, color);
+      }
+      // Left and right edges (excluding corners already drawn)
+      for (let y = minY + 1; y < maxY; y++) {
+        await this.editor.setPixelColor(minX, y, color);
+        await this.editor.setPixelColor(maxX, y, color);
+      }
+    }
+  }
+}
+
+/**
+ * Circle tool - draws circles (filled or outline)
+ * Uses midpoint circle algorithm
+ */
+class CircleTool implements Tool {
+  name = 'Circle';
+  icon = 'Circle';
+  private centerX: number | null = null;
+  private centerY: number | null = null;
+  private isDrawing = false;
+  public filled = false;
+
+  constructor(private editor: PixelEditor) {}
+
+  async clicked(x: number, y: number): Promise<void> {
+    if (!this.isDrawing) {
+      // First click - set center
+      this.centerX = x;
+      this.centerY = y;
+      this.isDrawing = true;
+      console.log(`Circle: Center at (${x}, ${y})`);
+    } else {
+      // Second click - draw circle with radius to this point
+      if (this.centerX !== null && this.centerY !== null) {
+        const radius = Math.round(Math.sqrt(
+          Math.pow(x - this.centerX, 2) + Math.pow(y - this.centerY, 2)
+        ));
+        await this.drawCircle(this.centerX, this.centerY, radius);
+        console.log(`Circle: Drew circle at (${this.centerX}, ${this.centerY}) with radius ${radius}`);
+      }
+      // Reset state
+      this.centerX = null;
+      this.centerY = null;
+      this.isDrawing = false;
+    }
+  }
+
+  /**
+   * Draw a circle using the midpoint circle algorithm
+   */
+  private async drawCircle(cx: number, cy: number, radius: number): Promise<void> {
+    const color = this.editor.fgColor;
+
+    if (radius === 0) {
+      await this.editor.setPixelColor(cx, cy, color);
+      return;
+    }
+
+    if (this.filled) {
+      // Filled circle using scanline approach
+      for (let y = -radius; y <= radius; y++) {
+        const halfWidth = Math.round(Math.sqrt(radius * radius - y * y));
+        for (let x = -halfWidth; x <= halfWidth; x++) {
+          await this.editor.setPixelColor(cx + x, cy + y, color);
+        }
+      }
+    } else {
+      // Outline using midpoint circle algorithm
+      let x = radius;
+      let y = 0;
+      let err = 0;
+
+      while (x >= y) {
+        // Draw 8 octants
+        await this.editor.setPixelColor(cx + x, cy + y, color);
+        await this.editor.setPixelColor(cx + y, cy + x, color);
+        await this.editor.setPixelColor(cx - y, cy + x, color);
+        await this.editor.setPixelColor(cx - x, cy + y, color);
+        await this.editor.setPixelColor(cx - x, cy - y, color);
+        await this.editor.setPixelColor(cx - y, cy - x, color);
+        await this.editor.setPixelColor(cx + y, cy - x, color);
+        await this.editor.setPixelColor(cx + x, cy - y, color);
+
+        y++;
+        if (err <= 0) {
+          err += 2 * y + 1;
+        }
+        if (err > 0) {
+          x--;
+          err -= 2 * x + 1;
+        }
+      }
+    }
+  }
+}
+
+/**
  * PixelEditor - main editor class managing image state and operations
  * Based on: internal/api/editor.go and internal/ui/editor.go
  */
@@ -266,14 +449,26 @@ class PixelEditor {
   private imageWidth: number = 32;
   private imageHeight: number = 32;
   private pixels: Uint8ClampedArray | null = null; // RGBA pixel data
+  private originalPixels: Uint8ClampedArray | null = null; // For reload
   private currentFile: string | null = null;
+  private hasUnsavedChanges: boolean = false;
   private statusLabel: any = null;
   private zoomLabel: any = null;
   private colorLabel: any = null;
+  private bgColorLabel: any = null;
+  private toolLabel: any = null;
+  private coordLabel: any = null;
   private fgPreview: CanvasRectangle | null = null;
+  private bgPreview: CanvasRectangle | null = null;
   private canvasRaster: TappableCanvasRaster | null = null; // Interactive raster canvas
   private win: Window | null = null;
   private recentFiles: string[] = [];
+
+  // Undo/Redo system
+  private undoStack: UndoOperation[] = [];
+  private redoStack: UndoOperation[] = [];
+  private currentOperation: PixelChange[] = [];
+  private isRecordingOperation: boolean = false;
 
   constructor(private a: App) {
     // Initialize tools
@@ -282,7 +477,9 @@ class PixelEditor {
       new PickerTool(this),
       new EraserTool(this),
       new BucketTool(this),
-      new LineTool(this)
+      new LineTool(this),
+      new RectangleTool(this),
+      new CircleTool(this)
     ];
     this.currentTool = this.tools[0]; // Default to pencil
 
@@ -368,10 +565,31 @@ class PixelEditor {
     const index = (y * this.imageWidth + x) * 4;
     if (index < 0 || index >= this.pixels.length) return;
 
+    // Record old color for undo
+    const oldColor = new Color(
+      this.pixels[index],
+      this.pixels[index + 1],
+      this.pixels[index + 2],
+      this.pixels[index + 3]
+    );
+
+    // Skip if color is the same
+    if (oldColor.equals(color)) return;
+
+    // Record change for undo
+    this.currentOperation.push({
+      x,
+      y,
+      oldColor,
+      newColor: color.clone()
+    });
+
     this.pixels[index] = color.r;
     this.pixels[index + 1] = color.g;
     this.pixels[index + 2] = color.b;
     this.pixels[index + 3] = color.a;
+
+    this.hasUnsavedChanges = true;
 
     // Update the visual raster if it exists
     // Each logical pixel becomes zoom×zoom pixels in the zoomed raster
@@ -397,6 +615,128 @@ class PixelEditor {
     }
 
     this.updateStatus();
+  }
+
+  /**
+   * Begin recording an undo operation
+   */
+  beginOperation(): void {
+    this.currentOperation = [];
+  }
+
+  /**
+   * End recording and push to undo stack
+   */
+  endOperation(description: string): void {
+    if (this.currentOperation.length > 0) {
+      this.undoStack.push({
+        changes: [...this.currentOperation],
+        description
+      });
+      // Limit history size
+      while (this.undoStack.length > MAX_UNDO_HISTORY) {
+        this.undoStack.shift();
+      }
+      // Clear redo stack when new operation is performed
+      this.redoStack = [];
+    }
+    this.currentOperation = [];
+  }
+
+  /**
+   * Undo last operation
+   */
+  async undo(): Promise<void> {
+    const operation = this.undoStack.pop();
+    if (!operation) {
+      console.log('Undo: Nothing to undo');
+      return;
+    }
+
+    console.log(`Undo: ${operation.description}`);
+
+    // Apply changes in reverse
+    for (let i = operation.changes.length - 1; i >= 0; i--) {
+      const change = operation.changes[i];
+      await this.setPixelColorDirect(change.x, change.y, change.oldColor);
+    }
+
+    // Push to redo stack
+    this.redoStack.push(operation);
+    this.updateStatus();
+  }
+
+  /**
+   * Redo last undone operation
+   */
+  async redo(): Promise<void> {
+    const operation = this.redoStack.pop();
+    if (!operation) {
+      console.log('Redo: Nothing to redo');
+      return;
+    }
+
+    console.log(`Redo: ${operation.description}`);
+
+    // Apply changes forward
+    for (const change of operation.changes) {
+      await this.setPixelColorDirect(change.x, change.y, change.newColor);
+    }
+
+    // Push back to undo stack
+    this.undoStack.push(operation);
+    this.updateStatus();
+  }
+
+  /**
+   * Set pixel color without recording undo (for undo/redo operations)
+   */
+  private async setPixelColorDirect(x: number, y: number, color: Color): Promise<void> {
+    if (!this.pixels) return;
+
+    const index = (y * this.imageWidth + x) * 4;
+    if (index < 0 || index >= this.pixels.length) return;
+
+    this.pixels[index] = color.r;
+    this.pixels[index + 1] = color.g;
+    this.pixels[index + 2] = color.b;
+    this.pixels[index + 3] = color.a;
+
+    // Update the visual raster
+    if (this.canvasRaster) {
+      const updates: Array<{x: number; y: number; r: number; g: number; b: number; a: number}> = [];
+
+      for (let dy = 0; dy < this.zoom; dy++) {
+        for (let dx = 0; dx < this.zoom; dx++) {
+          const rasterX = x * this.zoom + dx;
+          const rasterY = y * this.zoom + dy;
+          updates.push({
+            x: rasterX,
+            y: rasterY,
+            r: color.r,
+            g: color.g,
+            b: color.b,
+            a: color.a
+          });
+        }
+      }
+
+      await this.canvasRaster.setPixels(updates);
+    }
+  }
+
+  /**
+   * Check if undo is available
+   */
+  canUndo(): boolean {
+    return this.undoStack.length > 0;
+  }
+
+  /**
+   * Check if redo is available
+   */
+  canRedo(): boolean {
+    return this.redoStack.length > 0;
   }
 
   /**
@@ -426,12 +766,49 @@ class PixelEditor {
   }
 
   /**
+   * Set background color
+   */
+  async setBGColor(color: Color): Promise<void> {
+    this.bgColor = color;
+    console.log(`Background color set to ${color.toHex()}`);
+    if (this.bgColorLabel) {
+      await this.bgColorLabel.setText(`${color.toHex()}`);
+    }
+    if (this.bgPreview) {
+      await this.bgPreview.update({ fillColor: color.toHex() });
+    }
+  }
+
+  /**
+   * Open color picker dialog for BG color
+   */
+  async pickBGColor(): Promise<void> {
+    if (!this.win) return;
+    const result = await this.win.showColorPicker('Choose Background Color', this.bgColor.toHex());
+    if (result) {
+      await this.setBGColor(new Color(result.r, result.g, result.b, result.a));
+    }
+  }
+
+  /**
+   * Swap foreground and background colors
+   */
+  async swapColors(): Promise<void> {
+    const temp = this.fgColor;
+    await this.setFGColor(this.bgColor);
+    await this.setBGColor(temp);
+  }
+
+  /**
    * Set active tool
    * Based on: editor.go setTool()
    */
-  setTool(tool: Tool): void {
+  async setTool(tool: Tool): Promise<void> {
     this.currentTool = tool;
     console.log(`Switched to ${tool.name} tool`);
+    if (this.toolLabel) {
+      await this.toolLabel.setText(`Tool: ${tool.name}`);
+    }
   }
 
   /**
@@ -468,29 +845,100 @@ class PixelEditor {
    */
   async loadFile(filepath: string): Promise<void> {
     console.log(`Loading file: ${filepath}`);
-    this.currentFile = filepath;
-    await this.addToRecentFiles(filepath);
-    // TODO: Implement actual image loading via bridge
-    // For now, create a blank 32x32 image
-    this.createBlankImage(32, 32);
+
+    try {
+      // Try to load actual image using jimp
+      const Jimp = await import('jimp');
+      const image = await Jimp.Jimp.read(filepath);
+
+      this.imageWidth = image.width;
+      this.imageHeight = image.height;
+      const size = this.imageWidth * this.imageHeight * 4;
+      this.pixels = new Uint8ClampedArray(size);
+
+      // Copy pixel data from jimp image
+      for (let y = 0; y < this.imageHeight; y++) {
+        for (let x = 0; x < this.imageWidth; x++) {
+          const color = image.getPixelColor(x, y);
+          const index = (y * this.imageWidth + x) * 4;
+          // Jimp stores as RGBA
+          this.pixels[index] = (color >> 24) & 0xFF;     // R
+          this.pixels[index + 1] = (color >> 16) & 0xFF; // G
+          this.pixels[index + 2] = (color >> 8) & 0xFF;  // B
+          this.pixels[index + 3] = color & 0xFF;         // A
+        }
+      }
+
+      // Store original for reload
+      this.originalPixels = new Uint8ClampedArray(this.pixels);
+      this.currentFile = filepath;
+      this.hasUnsavedChanges = false;
+
+      // Clear undo/redo history
+      this.undoStack = [];
+      this.redoStack = [];
+
+      await this.addToRecentFiles(filepath);
+      console.log(`Loaded image: ${this.imageWidth}x${this.imageHeight}`);
+    } catch (error) {
+      console.error(`Failed to load image: ${error}`);
+      // Fallback to blank image
+      this.createBlankImage(32, 32);
+      this.currentFile = filepath;
+    }
+
     this.updateStatus();
   }
 
   /**
    * Create a blank image
    */
-  private createBlankImage(width: number, height: number): void {
+  createBlankImage(width: number, height: number): void {
     this.imageWidth = width;
     this.imageHeight = height;
-    // Create a white image
+    // Create image filled with background color
     const size = width * height * 4;
     this.pixels = new Uint8ClampedArray(size);
-    // Fill with white (255, 255, 255, 255)
+    // Fill with background color
     for (let i = 0; i < size; i += 4) {
-      this.pixels[i] = 255;     // R
-      this.pixels[i + 1] = 255; // G
-      this.pixels[i + 2] = 255; // B
-      this.pixels[i + 3] = 255; // A
+      this.pixels[i] = this.bgColor.r;
+      this.pixels[i + 1] = this.bgColor.g;
+      this.pixels[i + 2] = this.bgColor.b;
+      this.pixels[i + 3] = this.bgColor.a;
+    }
+
+    // Store original for reload
+    this.originalPixels = new Uint8ClampedArray(this.pixels);
+    this.hasUnsavedChanges = false;
+
+    // Clear undo/redo history
+    this.undoStack = [];
+    this.redoStack = [];
+  }
+
+  /**
+   * Create a new blank image with dialog
+   */
+  async newImage(): Promise<void> {
+    if (!this.win) return;
+
+    // Show form dialog for dimensions
+    const result = await this.win.showForm('New Image', [
+      { type: 'entry', label: 'Width', key: 'width' },
+      { type: 'entry', label: 'Height', key: 'height' }
+    ]);
+
+    if (result && result.submitted) {
+      const width = parseInt(result.values.width as string, 10) || 32;
+      const height = parseInt(result.values.height as string, 10) || 32;
+
+      // Limit to reasonable dimensions
+      const finalWidth = Math.max(1, Math.min(1024, width));
+      const finalHeight = Math.max(1, Math.min(1024, height));
+
+      this.createBlankImage(finalWidth, finalHeight);
+      this.currentFile = null;
+      this.updateStatus();
     }
   }
 
@@ -503,11 +951,54 @@ class PixelEditor {
       await this.saveAs();
       return;
     }
-    console.log(`Saving to ${this.currentFile}`);
-    // TODO: Implement actual file saving via bridge
-    if (this.win) {
-      await this.win.showInfo('Save', `Image saved to ${this.currentFile}`);
+
+    try {
+      await this.saveToFile(this.currentFile);
+      this.hasUnsavedChanges = false;
+      this.updateStatus();
+      if (this.win) {
+        await this.win.showInfo('Save', `Image saved to ${this.currentFile}`);
+      }
+    } catch (error) {
+      console.error(`Failed to save image: ${error}`);
+      if (this.win) {
+        await this.win.showError('Save Error', `Failed to save image: ${error}`);
+      }
     }
+  }
+
+  /**
+   * Save image to a specific file path using jimp
+   */
+  private async saveToFile(filepath: string): Promise<void> {
+    if (!this.pixels) {
+      throw new Error('No image data to save');
+    }
+
+    const Jimp = await import('jimp');
+
+    // Create a new jimp image
+    const image = new Jimp.Jimp({ width: this.imageWidth, height: this.imageHeight });
+
+    // Copy pixel data
+    for (let y = 0; y < this.imageHeight; y++) {
+      for (let x = 0; x < this.imageWidth; x++) {
+        const index = (y * this.imageWidth + x) * 4;
+        const r = this.pixels[index];
+        const g = this.pixels[index + 1];
+        const b = this.pixels[index + 2];
+        const a = this.pixels[index + 3];
+
+        // Jimp stores as RGBA packed into 32-bit int
+        const color = ((r & 0xFF) << 24) | ((g & 0xFF) << 16) | ((b & 0xFF) << 8) | (a & 0xFF);
+        image.setPixelColor(color, x, y);
+      }
+    }
+
+    // Ensure the file has .png extension
+    const finalPath = filepath.endsWith('.png') ? filepath : `${filepath}.png`;
+    await image.write(finalPath as `${string}.${string}`);
+    console.log(`Saved image to ${finalPath}`);
   }
 
   /**
@@ -553,22 +1044,84 @@ class PixelEditor {
    * Based on: editor.go Reload()
    */
   async reload(): Promise<void> {
-    if (!this.currentFile) {
-      this.createBlankImage(32, 32);
+    // If we have original pixels, restore them
+    if (this.originalPixels) {
+      this.pixels = new Uint8ClampedArray(this.originalPixels);
+      this.hasUnsavedChanges = false;
+      this.undoStack = [];
+      this.redoStack = [];
+      // Refresh canvas display
+      await this.refreshCanvas();
       this.updateStatus();
       return;
     }
-    await this.loadFile(this.currentFile);
+
+    // Otherwise reload from file or create blank
+    if (this.currentFile) {
+      await this.loadFile(this.currentFile);
+    } else {
+      this.createBlankImage(32, 32);
+      this.updateStatus();
+    }
   }
 
   /**
-   * Update status bar
+   * Refresh the canvas display with current pixel data
+   */
+  private async refreshCanvas(): Promise<void> {
+    if (!this.canvasRaster || !this.pixels) return;
+
+    const updates: Array<{x: number; y: number; r: number; g: number; b: number; a: number}> = [];
+
+    for (let py = 0; py < this.imageHeight; py++) {
+      for (let px = 0; px < this.imageWidth; px++) {
+        const idx = (py * this.imageWidth + px) * 4;
+        const r = this.pixels[idx];
+        const g = this.pixels[idx + 1];
+        const b = this.pixels[idx + 2];
+        const a = this.pixels[idx + 3];
+
+        for (let dy = 0; dy < this.zoom; dy++) {
+          for (let dx = 0; dx < this.zoom; dx++) {
+            updates.push({
+              x: px * this.zoom + dx,
+              y: py * this.zoom + dy,
+              r, g, b, a
+            });
+          }
+        }
+      }
+    }
+
+    await this.canvasRaster.setPixels(updates);
+  }
+
+  /**
+   * Update status bar with enhanced information
    */
   private async updateStatus(): Promise<void> {
     if (this.statusLabel && this.pixels) {
       const filename = this.currentFile ? this.currentFile.split('/').pop() : 'New Image';
-      const msg = `File: ${filename} | Width: ${this.imageWidth} | Height: ${this.imageHeight}`;
+      const unsaved = this.hasUnsavedChanges ? '*' : '';
+      const msg = `${filename}${unsaved} | ${this.imageWidth}x${this.imageHeight} | ${this.zoom * 100}%`;
       await this.statusLabel.setText(msg);
+    }
+    if (this.toolLabel) {
+      await this.toolLabel.setText(`Tool: ${this.currentTool.name}`);
+    }
+  }
+
+  /**
+   * Update coordinate display (called on mouse move/click)
+   */
+  async updateCoordinates(x: number, y: number): Promise<void> {
+    if (this.coordLabel) {
+      if (x >= 0 && x < this.imageWidth && y >= 0 && y < this.imageHeight) {
+        const color = this.getPixelColor(x, y);
+        await this.coordLabel.setText(`(${x}, ${y}) ${color.toHex()}`);
+      } else {
+        await this.coordLabel.setText('');
+      }
     }
   }
 
@@ -580,8 +1133,9 @@ class PixelEditor {
   private updateMainMenu(): void {
     if (!this.win) return;
 
-    // Build menu items - flatten recent files into main menu since nested menus not supported
-    const menuItems: Array<{label: string; onSelected?: () => void; isSeparator?: boolean}> = [
+    // Build File menu items
+    const fileMenuItems: Array<{label: string; onSelected?: () => void; isSeparator?: boolean}> = [
+      { label: 'New ...', onSelected: () => this.newImage() },
       { label: 'Open ...', onSelected: () => this.fileOpen() },
       { label: 'isSeparator', isSeparator: true },
     ];
@@ -590,19 +1144,31 @@ class PixelEditor {
     if (this.recentFiles.length > 0) {
       for (const filepath of this.recentFiles.slice(0, 3)) { // Show up to 3 recent
         const filename = filepath.split('/').pop() || filepath;
-        menuItems.push({ label: `Recent: ${filename}`, onSelected: () => this.loadFile(filepath) });
+        fileMenuItems.push({ label: `Recent: ${filename}`, onSelected: () => this.loadFile(filepath) });
       }
-      menuItems.push({ label: 'isSeparator', isSeparator: true });
+      fileMenuItems.push({ label: 'isSeparator', isSeparator: true });
     }
 
-    menuItems.push({ label: 'Reset ...', onSelected: () => this.fileReset() });
-    menuItems.push({ label: 'Save', onSelected: () => this.save() });
-    menuItems.push({ label: 'Save As ...', onSelected: () => this.saveAs() });
+    fileMenuItems.push({ label: 'Reset ...', onSelected: () => this.fileReset() });
+    fileMenuItems.push({ label: 'Save', onSelected: () => this.save() });
+    fileMenuItems.push({ label: 'Save As ...', onSelected: () => this.saveAs() });
+
+    // Build Edit menu items
+    const editMenuItems: Array<{label: string; onSelected?: () => void; isSeparator?: boolean}> = [
+      { label: 'Undo', onSelected: () => this.undo() },
+      { label: 'Redo', onSelected: () => this.redo() },
+      { label: 'isSeparator', isSeparator: true },
+      { label: 'Swap FG/BG Colors', onSelected: () => this.swapColors() },
+    ];
 
     this.win.setMainMenu([
       {
         label: 'File',
-        items: menuItems
+        items: fileMenuItems
+      },
+      {
+        label: 'Edit',
+        items: editMenuItems
       }
     ]);
   }
@@ -679,8 +1245,8 @@ class PixelEditor {
 
       this.a.separator();
 
-      // Color preview with clickable color picker
-      // Based on: editor.go fgPreview = canvas.NewRectangle(fgCol)
+      // Foreground color preview with clickable color picker
+      this.a.label('FG Color');
       this.fgPreview = this.a.canvasRectangle({
         width: 32,
         height: 32,
@@ -688,10 +1254,27 @@ class PixelEditor {
         strokeColor: '#000000',
         strokeWidth: 1
       });
-
       this.colorLabel = this.a.label(this.fgColor.toHex());
+      this.a.button('Pick FG', () => this.pickFGColor());
 
-      this.a.button('Pick Color', () => this.pickFGColor());
+      this.a.separator();
+
+      // Background color preview with clickable color picker
+      this.a.label('BG Color');
+      this.bgPreview = this.a.canvasRectangle({
+        width: 32,
+        height: 32,
+        fillColor: this.bgColor.toHex(),
+        strokeColor: '#000000',
+        strokeWidth: 1
+      });
+      this.bgColorLabel = this.a.label(this.bgColor.toHex());
+      this.a.button('Pick BG', () => this.pickBGColor());
+
+      this.a.separator();
+
+      // Swap colors button
+      this.a.button('Swap FG/BG', () => this.swapColors());
     });
   }
 
@@ -734,7 +1317,7 @@ class PixelEditor {
           zoomedWidth,
           zoomedHeight,
           pixelArray,
-          (screenX: number, screenY: number) => {
+          async (screenX: number, screenY: number) => {
             // Convert screen coordinates to pixel coordinates by dividing by zoom
             const pixelX = Math.floor(screenX / this.zoom);
             const pixelY = Math.floor(screenY / this.zoom);
@@ -744,8 +1327,17 @@ class PixelEditor {
               return;
             }
 
+            // Update coordinate display
+            await this.updateCoordinates(pixelX, pixelY);
+
+            // Begin undo operation
+            this.beginOperation();
+
             // Delegate to current tool
-            this.currentTool.clicked(pixelX, pixelY);
+            await this.currentTool.clicked(pixelX, pixelY);
+
+            // End undo operation with tool name
+            this.endOperation(`${this.currentTool.name} at (${pixelX}, ${pixelY})`);
           }
         );
       });
@@ -753,11 +1345,20 @@ class PixelEditor {
   }
 
   /**
-   * Build status bar
+   * Build status bar with enhanced information
    * Based on: ui/status.go
    */
   private buildStatusBar(): void {
-    this.statusLabel = this.a.label('Open a file');
+    this.a.hbox(() => {
+      // Main status (file info)
+      this.statusLabel = this.a.label('Open a file');
+      this.a.separator();
+      // Current tool
+      this.toolLabel = this.a.label(`Tool: ${this.currentTool.name}`);
+      this.a.separator();
+      // Coordinates and color under cursor
+      this.coordLabel = this.a.label('');
+    });
   }
 
   // Expose for testing
@@ -791,8 +1392,8 @@ export function createPixelEditorApp(a: App): PixelEditor {
   return editor;
 }
 
-// Export PixelEditor class for testing
-export { PixelEditor };
+// Export classes for testing
+export { PixelEditor, Color };
 
 /**
  * Main application entry point
