@@ -6,14 +6,16 @@
  * License: See original repository
  *
  * This port demonstrates pixel editing capabilities in Tsyne, including:
- * - Main menu with File operations
+ * - Main menu with File, Edit, and Layer operations
  * - File dialogs for Open/Save
  * - Recent files history (stored in preferences)
  * - Color picker for foreground/background color selection
  * - Power-of-2 zoom (100%, 200%, 400%, etc.)
  * - FG/BG color preview rectangles
  * - Undo/Redo system
- * - Multiple drawing tools (Pencil, Picker, Eraser, Bucket, Line, Rectangle)
+ * - Multiple drawing tools (Pencil, Picker, Eraser, Bucket, Line, Rectangle, Circle, Select)
+ * - Selection system with copy/cut/paste clipboard operations
+ * - Multi-layer support with visibility, opacity, and compositing
  */
 
 import { app } from '../../src';
@@ -29,6 +31,7 @@ const MAX_RECENT_FILES = 5;
 const RECENT_COUNT_KEY = 'pixeledit_recentCount';
 const RECENT_FORMAT_KEY = 'pixeledit_recent_';
 const MAX_UNDO_HISTORY = 50;
+const MAX_LAYERS = 16;
 
 /**
  * Tool interface - defines the contract for editing tools
@@ -38,7 +41,45 @@ interface Tool {
   name: string;
   icon?: string;
   clicked(x: number, y: number): void | Promise<void>;
+  /** Optional: called when tool is deactivated */
+  deactivate?(): void;
 }
+
+/**
+ * Selection rectangle interface
+ */
+interface Selection {
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+}
+
+/**
+ * Clipboard data structure for copy/paste operations
+ */
+interface ClipboardData {
+  width: number;
+  height: number;
+  pixels: Uint8ClampedArray;
+}
+
+/**
+ * Layer structure for multi-layer support
+ */
+interface Layer {
+  id: number;
+  name: string;
+  visible: boolean;
+  opacity: number; // 0-255
+  locked: boolean;
+  pixels: Uint8ClampedArray;
+}
+
+/**
+ * Blend modes for layer compositing
+ */
+type BlendMode = 'normal' | 'multiply' | 'screen' | 'overlay' | 'add';
 
 /**
  * Color utility functions
@@ -437,6 +478,58 @@ class CircleTool implements Tool {
 }
 
 /**
+ * Selection tool - selects rectangular regions of the canvas
+ * Used for copy/cut/paste operations
+ */
+class SelectionTool implements Tool {
+  name = 'Select';
+  icon = 'Select';
+  private startX: number | null = null;
+  private startY: number | null = null;
+  private isSelecting = false;
+
+  constructor(private editor: PixelEditor) {}
+
+  async clicked(x: number, y: number): Promise<void> {
+    if (!this.isSelecting) {
+      // First click - start selection
+      this.startX = x;
+      this.startY = y;
+      this.isSelecting = true;
+      console.log(`Select: Started at (${x}, ${y})`);
+    } else {
+      // Second click - complete selection
+      if (this.startX !== null && this.startY !== null) {
+        const minX = Math.min(this.startX, x);
+        const maxX = Math.max(this.startX, x);
+        const minY = Math.min(this.startY, y);
+        const maxY = Math.max(this.startY, y);
+
+        const selection: Selection = {
+          x: minX,
+          y: minY,
+          width: maxX - minX + 1,
+          height: maxY - minY + 1
+        };
+
+        this.editor.setSelection(selection);
+        console.log(`Select: Created selection ${selection.width}x${selection.height} at (${selection.x}, ${selection.y})`);
+      }
+      // Reset state
+      this.startX = null;
+      this.startY = null;
+      this.isSelecting = false;
+    }
+  }
+
+  deactivate(): void {
+    this.startX = null;
+    this.startY = null;
+    this.isSelecting = false;
+  }
+}
+
+/**
  * PixelEditor - main editor class managing image state and operations
  * Based on: internal/api/editor.go and internal/ui/editor.go
  */
@@ -458,6 +551,8 @@ class PixelEditor {
   private bgColorLabel: any = null;
   private toolLabel: any = null;
   private coordLabel: any = null;
+  private selectionLabel: any = null;
+  private layerLabel: any = null;
   private fgPreview: CanvasRectangle | null = null;
   private bgPreview: CanvasRectangle | null = null;
   private canvasRaster: TappableCanvasRaster | null = null; // Interactive raster canvas
@@ -470,6 +565,17 @@ class PixelEditor {
   private currentOperation: PixelChange[] = [];
   private isRecordingOperation: boolean = false;
 
+  // Selection system
+  private selection: Selection | null = null;
+
+  // Clipboard system
+  private clipboard: ClipboardData | null = null;
+
+  // Layer system
+  private layers: Layer[] = [];
+  private activeLayerIndex: number = 0;
+  private nextLayerId: number = 1;
+
   constructor(private a: App) {
     // Initialize tools
     this.tools = [
@@ -479,7 +585,8 @@ class PixelEditor {
       new BucketTool(this),
       new LineTool(this),
       new RectangleTool(this),
-      new CircleTool(this)
+      new CircleTool(this),
+      new SelectionTool(this)
     ];
     this.currentTool = this.tools[0]; // Default to pencil
 
@@ -739,6 +846,426 @@ class PixelEditor {
     return this.redoStack.length > 0;
   }
 
+  // ============================================
+  // Selection System
+  // ============================================
+
+  /**
+   * Set the current selection
+   */
+  setSelection(sel: Selection | null): void {
+    this.selection = sel;
+    this.updateSelectionDisplay();
+  }
+
+  /**
+   * Get the current selection
+   */
+  getSelection(): Selection | null {
+    return this.selection;
+  }
+
+  /**
+   * Clear the current selection
+   */
+  clearSelection(): void {
+    this.selection = null;
+    this.updateSelectionDisplay();
+    console.log('Selection cleared');
+  }
+
+  /**
+   * Select all pixels in the image
+   */
+  selectAll(): void {
+    this.selection = {
+      x: 0,
+      y: 0,
+      width: this.imageWidth,
+      height: this.imageHeight
+    };
+    this.updateSelectionDisplay();
+    console.log(`Selected all: ${this.imageWidth}x${this.imageHeight}`);
+  }
+
+  /**
+   * Update selection display in status bar
+   */
+  private updateSelectionDisplay(): void {
+    if (this.selectionLabel) {
+      if (this.selection) {
+        this.selectionLabel.setText(`Sel: ${this.selection.width}x${this.selection.height}`);
+      } else {
+        this.selectionLabel.setText('');
+      }
+    }
+  }
+
+  // ============================================
+  // Clipboard System
+  // ============================================
+
+  /**
+   * Copy selected region to clipboard
+   */
+  async copy(): Promise<void> {
+    if (!this.selection || !this.pixels) {
+      console.log('Copy: No selection or no image');
+      return;
+    }
+
+    const { x, y, width, height } = this.selection;
+    const clipPixels = new Uint8ClampedArray(width * height * 4);
+
+    for (let py = 0; py < height; py++) {
+      for (let px = 0; px < width; px++) {
+        const srcX = x + px;
+        const srcY = y + py;
+
+        if (srcX >= 0 && srcX < this.imageWidth && srcY >= 0 && srcY < this.imageHeight) {
+          const srcIdx = (srcY * this.imageWidth + srcX) * 4;
+          const dstIdx = (py * width + px) * 4;
+
+          clipPixels[dstIdx] = this.pixels[srcIdx];
+          clipPixels[dstIdx + 1] = this.pixels[srcIdx + 1];
+          clipPixels[dstIdx + 2] = this.pixels[srcIdx + 2];
+          clipPixels[dstIdx + 3] = this.pixels[srcIdx + 3];
+        }
+      }
+    }
+
+    this.clipboard = {
+      width,
+      height,
+      pixels: clipPixels
+    };
+
+    console.log(`Copied ${width}x${height} pixels to clipboard`);
+  }
+
+  /**
+   * Cut selected region to clipboard (copy + clear to background)
+   */
+  async cut(): Promise<void> {
+    if (!this.selection || !this.pixels) {
+      console.log('Cut: No selection or no image');
+      return;
+    }
+
+    // First copy
+    await this.copy();
+
+    // Then clear the selection to background color
+    this.beginOperation();
+    const { x, y, width, height } = this.selection;
+    for (let py = 0; py < height; py++) {
+      for (let px = 0; px < width; px++) {
+        await this.setPixelColor(x + px, y + py, this.bgColor);
+      }
+    }
+    this.endOperation('Cut selection');
+
+    console.log(`Cut ${width}x${height} pixels`);
+  }
+
+  /**
+   * Paste clipboard at specified position (or selection start)
+   */
+  async paste(destX?: number, destY?: number): Promise<void> {
+    if (!this.clipboard || !this.pixels) {
+      console.log('Paste: No clipboard data or no image');
+      return;
+    }
+
+    // Default to selection position or (0, 0)
+    const px = destX ?? (this.selection?.x ?? 0);
+    const py = destY ?? (this.selection?.y ?? 0);
+
+    this.beginOperation();
+
+    for (let y = 0; y < this.clipboard.height; y++) {
+      for (let x = 0; x < this.clipboard.width; x++) {
+        const destPx = px + x;
+        const destPy = py + y;
+
+        if (destPx >= 0 && destPx < this.imageWidth && destPy >= 0 && destPy < this.imageHeight) {
+          const srcIdx = (y * this.clipboard.width + x) * 4;
+          const color = new Color(
+            this.clipboard.pixels[srcIdx],
+            this.clipboard.pixels[srcIdx + 1],
+            this.clipboard.pixels[srcIdx + 2],
+            this.clipboard.pixels[srcIdx + 3]
+          );
+          await this.setPixelColor(destPx, destPy, color);
+        }
+      }
+    }
+
+    this.endOperation(`Paste at (${px}, ${py})`);
+    console.log(`Pasted ${this.clipboard.width}x${this.clipboard.height} pixels at (${px}, ${py})`);
+  }
+
+  /**
+   * Check if clipboard has content
+   */
+  hasClipboard(): boolean {
+    return this.clipboard !== null;
+  }
+
+  // ============================================
+  // Layer System
+  // ============================================
+
+  /**
+   * Initialize layers (called when creating/loading an image)
+   */
+  private initializeLayers(): void {
+    if (this.layers.length === 0) {
+      // Create a default background layer
+      this.addLayer('Background');
+    }
+  }
+
+  /**
+   * Add a new layer
+   */
+  addLayer(name?: string): Layer {
+    if (this.layers.length >= MAX_LAYERS) {
+      console.log('Maximum layer count reached');
+      return this.layers[this.activeLayerIndex];
+    }
+
+    const layer: Layer = {
+      id: this.nextLayerId++,
+      name: name || `Layer ${this.nextLayerId}`,
+      visible: true,
+      opacity: 255,
+      locked: false,
+      pixels: new Uint8ClampedArray(this.imageWidth * this.imageHeight * 4)
+    };
+
+    // Initialize with transparent pixels
+    for (let i = 0; i < layer.pixels.length; i += 4) {
+      layer.pixels[i] = 0;
+      layer.pixels[i + 1] = 0;
+      layer.pixels[i + 2] = 0;
+      layer.pixels[i + 3] = 0;
+    }
+
+    this.layers.push(layer);
+    this.activeLayerIndex = this.layers.length - 1;
+    this.updateLayerDisplay();
+
+    console.log(`Added layer: ${layer.name}`);
+    return layer;
+  }
+
+  /**
+   * Remove a layer by index
+   */
+  removeLayer(index: number): void {
+    if (this.layers.length <= 1) {
+      console.log('Cannot remove the last layer');
+      return;
+    }
+
+    if (index < 0 || index >= this.layers.length) {
+      console.log('Invalid layer index');
+      return;
+    }
+
+    const removedLayer = this.layers.splice(index, 1)[0];
+    if (this.activeLayerIndex >= this.layers.length) {
+      this.activeLayerIndex = this.layers.length - 1;
+    }
+
+    this.flattenToPixels();
+    this.updateLayerDisplay();
+    console.log(`Removed layer: ${removedLayer.name}`);
+  }
+
+  /**
+   * Set active layer by index
+   */
+  setActiveLayer(index: number): void {
+    if (index >= 0 && index < this.layers.length) {
+      this.activeLayerIndex = index;
+      this.updateLayerDisplay();
+      console.log(`Active layer: ${this.layers[index].name}`);
+    }
+  }
+
+  /**
+   * Get active layer
+   */
+  getActiveLayer(): Layer | null {
+    return this.layers[this.activeLayerIndex] || null;
+  }
+
+  /**
+   * Get all layers
+   */
+  getLayers(): Layer[] {
+    return [...this.layers];
+  }
+
+  /**
+   * Toggle layer visibility
+   */
+  toggleLayerVisibility(index: number): void {
+    if (index >= 0 && index < this.layers.length) {
+      this.layers[index].visible = !this.layers[index].visible;
+      this.flattenToPixels();
+      this.updateLayerDisplay();
+      console.log(`Layer ${this.layers[index].name} visibility: ${this.layers[index].visible}`);
+    }
+  }
+
+  /**
+   * Set layer opacity (0-255)
+   */
+  setLayerOpacity(index: number, opacity: number): void {
+    if (index >= 0 && index < this.layers.length) {
+      this.layers[index].opacity = Math.max(0, Math.min(255, opacity));
+      this.flattenToPixels();
+      console.log(`Layer ${this.layers[index].name} opacity: ${this.layers[index].opacity}`);
+    }
+  }
+
+  /**
+   * Move layer up in stack
+   */
+  moveLayerUp(index: number): void {
+    if (index > 0 && index < this.layers.length) {
+      const temp = this.layers[index];
+      this.layers[index] = this.layers[index - 1];
+      this.layers[index - 1] = temp;
+      if (this.activeLayerIndex === index) {
+        this.activeLayerIndex = index - 1;
+      } else if (this.activeLayerIndex === index - 1) {
+        this.activeLayerIndex = index;
+      }
+      this.flattenToPixels();
+      this.updateLayerDisplay();
+    }
+  }
+
+  /**
+   * Move layer down in stack
+   */
+  moveLayerDown(index: number): void {
+    if (index >= 0 && index < this.layers.length - 1) {
+      const temp = this.layers[index];
+      this.layers[index] = this.layers[index + 1];
+      this.layers[index + 1] = temp;
+      if (this.activeLayerIndex === index) {
+        this.activeLayerIndex = index + 1;
+      } else if (this.activeLayerIndex === index + 1) {
+        this.activeLayerIndex = index;
+      }
+      this.flattenToPixels();
+      this.updateLayerDisplay();
+    }
+  }
+
+  /**
+   * Merge layer down (merge with layer below)
+   */
+  mergeLayerDown(index: number): void {
+    if (index <= 0 || index >= this.layers.length) {
+      console.log('Cannot merge: no layer below');
+      return;
+    }
+
+    const topLayer = this.layers[index];
+    const bottomLayer = this.layers[index - 1];
+
+    // Blend top layer onto bottom layer
+    for (let i = 0; i < topLayer.pixels.length; i += 4) {
+      if (topLayer.visible && topLayer.pixels[i + 3] > 0) {
+        const srcAlpha = (topLayer.pixels[i + 3] * topLayer.opacity) / 255 / 255;
+        const dstAlpha = bottomLayer.pixels[i + 3] / 255;
+        const outAlpha = srcAlpha + dstAlpha * (1 - srcAlpha);
+
+        if (outAlpha > 0) {
+          bottomLayer.pixels[i] = Math.round(
+            (topLayer.pixels[i] * srcAlpha + bottomLayer.pixels[i] * dstAlpha * (1 - srcAlpha)) / outAlpha
+          );
+          bottomLayer.pixels[i + 1] = Math.round(
+            (topLayer.pixels[i + 1] * srcAlpha + bottomLayer.pixels[i + 1] * dstAlpha * (1 - srcAlpha)) / outAlpha
+          );
+          bottomLayer.pixels[i + 2] = Math.round(
+            (topLayer.pixels[i + 2] * srcAlpha + bottomLayer.pixels[i + 2] * dstAlpha * (1 - srcAlpha)) / outAlpha
+          );
+          bottomLayer.pixels[i + 3] = Math.round(outAlpha * 255);
+        }
+      }
+    }
+
+    // Remove the merged layer
+    this.layers.splice(index, 1);
+    if (this.activeLayerIndex >= index) {
+      this.activeLayerIndex = Math.max(0, this.activeLayerIndex - 1);
+    }
+
+    this.flattenToPixels();
+    this.updateLayerDisplay();
+    console.log(`Merged ${topLayer.name} into ${bottomLayer.name}`);
+  }
+
+  /**
+   * Flatten all layers into the main pixels array
+   */
+  flattenToPixels(): void {
+    if (!this.pixels) return;
+
+    // Start with background color
+    for (let i = 0; i < this.pixels.length; i += 4) {
+      this.pixels[i] = this.bgColor.r;
+      this.pixels[i + 1] = this.bgColor.g;
+      this.pixels[i + 2] = this.bgColor.b;
+      this.pixels[i + 3] = this.bgColor.a;
+    }
+
+    // Composite layers from bottom to top
+    for (const layer of this.layers) {
+      if (!layer.visible) continue;
+
+      for (let i = 0; i < layer.pixels.length; i += 4) {
+        const srcAlpha = (layer.pixels[i + 3] * layer.opacity) / 255 / 255;
+        if (srcAlpha > 0) {
+          const dstAlpha = this.pixels[i + 3] / 255;
+          const outAlpha = srcAlpha + dstAlpha * (1 - srcAlpha);
+
+          if (outAlpha > 0) {
+            this.pixels[i] = Math.round(
+              (layer.pixels[i] * srcAlpha + this.pixels[i] * dstAlpha * (1 - srcAlpha)) / outAlpha
+            );
+            this.pixels[i + 1] = Math.round(
+              (layer.pixels[i + 1] * srcAlpha + this.pixels[i + 1] * dstAlpha * (1 - srcAlpha)) / outAlpha
+            );
+            this.pixels[i + 2] = Math.round(
+              (layer.pixels[i + 2] * srcAlpha + this.pixels[i + 2] * dstAlpha * (1 - srcAlpha)) / outAlpha
+            );
+            this.pixels[i + 3] = Math.round(outAlpha * 255);
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Update layer display in UI
+   */
+  private updateLayerDisplay(): void {
+    if (this.layerLabel) {
+      const layer = this.layers[this.activeLayerIndex];
+      if (layer) {
+        this.layerLabel.setText(`Layer: ${layer.name} (${this.activeLayerIndex + 1}/${this.layers.length})`);
+      }
+    }
+  }
+
   /**
    * Set foreground color
    * Based on: editor.go SetFGColor()
@@ -804,6 +1331,10 @@ class PixelEditor {
    * Based on: editor.go setTool()
    */
   async setTool(tool: Tool): Promise<void> {
+    // Deactivate the previous tool if it has a deactivate method
+    if (this.currentTool && this.currentTool.deactivate) {
+      this.currentTool.deactivate();
+    }
     this.currentTool = tool;
     console.log(`Switched to ${tool.name} tool`);
     if (this.toolLabel) {
@@ -924,8 +1455,8 @@ class PixelEditor {
 
     // Show form dialog for dimensions
     const result = await this.win.showForm('New Image', [
-      { type: 'entry', label: 'Width', key: 'width' },
-      { type: 'entry', label: 'Height', key: 'height' }
+      { name: 'width', type: 'entry', label: 'Width', placeholder: '32' },
+      { name: 'height', type: 'entry', label: 'Height', placeholder: '32' }
     ]);
 
     if (result && result.submitted) {
@@ -1158,7 +1689,26 @@ class PixelEditor {
       { label: 'Undo', onSelected: () => this.undo() },
       { label: 'Redo', onSelected: () => this.redo() },
       { label: 'isSeparator', isSeparator: true },
+      { label: 'Cut', onSelected: () => this.cut() },
+      { label: 'Copy', onSelected: () => this.copy() },
+      { label: 'Paste', onSelected: () => this.paste() },
+      { label: 'isSeparator', isSeparator: true },
+      { label: 'Select All', onSelected: () => this.selectAll() },
+      { label: 'Deselect', onSelected: () => this.clearSelection() },
+      { label: 'isSeparator', isSeparator: true },
       { label: 'Swap FG/BG Colors', onSelected: () => this.swapColors() },
+    ];
+
+    // Build Layer menu items
+    const layerMenuItems: Array<{label: string; onSelected?: () => void; isSeparator?: boolean}> = [
+      { label: 'Add Layer', onSelected: () => this.addLayer() },
+      { label: 'Remove Layer', onSelected: () => this.removeLayer(this.activeLayerIndex) },
+      { label: 'isSeparator', isSeparator: true },
+      { label: 'Move Layer Up', onSelected: () => this.moveLayerUp(this.activeLayerIndex) },
+      { label: 'Move Layer Down', onSelected: () => this.moveLayerDown(this.activeLayerIndex) },
+      { label: 'Merge Down', onSelected: () => this.mergeLayerDown(this.activeLayerIndex) },
+      { label: 'isSeparator', isSeparator: true },
+      { label: 'Toggle Visibility', onSelected: () => this.toggleLayerVisibility(this.activeLayerIndex) },
     ];
 
     this.win.setMainMenu([
@@ -1169,6 +1719,10 @@ class PixelEditor {
       {
         label: 'Edit',
         items: editMenuItems
+      },
+      {
+        label: 'Layer',
+        items: layerMenuItems
       }
     ]);
   }
@@ -1356,6 +1910,12 @@ class PixelEditor {
       // Current tool
       this.toolLabel = this.a.label(`Tool: ${this.currentTool.name}`);
       this.a.separator();
+      // Selection info
+      this.selectionLabel = this.a.label('');
+      this.a.separator();
+      // Layer info
+      this.layerLabel = this.a.label('');
+      this.a.separator();
       // Coordinates and color under cursor
       this.coordLabel = this.a.label('');
     });
@@ -1392,8 +1952,9 @@ export function createPixelEditorApp(a: App): PixelEditor {
   return editor;
 }
 
-// Export classes for testing
-export { PixelEditor, Color };
+// Export classes and types for testing
+export { PixelEditor, Color, SelectionTool };
+export type { Selection, ClipboardData, Layer, BlendMode };
 
 /**
  * Main application entry point
