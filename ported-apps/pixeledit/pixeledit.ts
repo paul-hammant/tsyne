@@ -558,6 +558,7 @@ class PixelEditor {
   private canvasRaster: TappableCanvasRaster | null = null; // Interactive raster canvas
   private win: Window | null = null;
   private recentFiles: string[] = [];
+  private toolButtons: Map<string, any> = new Map(); // Track tool buttons for highlighting
 
   // Undo/Redo system
   private undoStack: UndoOperation[] = [];
@@ -1335,7 +1336,27 @@ class PixelEditor {
     if (this.currentTool && this.currentTool.deactivate) {
       this.currentTool.deactivate();
     }
+
+    // Update button highlighting (like original palette.go HighImportance)
+    const previousTool = this.currentTool;
     this.currentTool = tool;
+
+    // Remove highlight from previous tool button
+    if (previousTool && this.toolButtons.has(previousTool.name)) {
+      const prevBtn = this.toolButtons.get(previousTool.name);
+      if (prevBtn?.setText) {
+        await prevBtn.setText(previousTool.name);
+      }
+    }
+
+    // Add highlight to new tool button
+    if (this.toolButtons.has(tool.name)) {
+      const newBtn = this.toolButtons.get(tool.name);
+      if (newBtn?.setText) {
+        await newBtn.setText(`▶ ${tool.name}`);
+      }
+    }
+
     console.log(`Switched to ${tool.name} tool`);
     if (this.toolLabel) {
       await this.toolLabel.setText(`Tool: ${tool.name}`);
@@ -1782,10 +1803,15 @@ class PixelEditor {
       // Tool selection
       this.a.label('Tools');
 
+      // Create tool buttons with highlighting support
+      // Based on: palette.go - uses HighImportance for selected tool
       for (const tool of this.tools) {
-        this.a.button(tool.name, () => {
+        const isSelected = tool === this.currentTool;
+        const buttonLabel = isSelected ? `▶ ${tool.name}` : tool.name;
+        const btn = this.a.button(buttonLabel, () => {
           this.setTool(tool);
         });
+        this.toolButtons.set(tool.name, btn);
       }
 
       this.a.separator();
@@ -1961,6 +1987,21 @@ export type { Selection, ClipboardData, Layer, BlendMode };
  */
 if (require.main === module) {
   app({ title: 'Pixel Editor' }, (a: App) => {
-    createPixelEditorApp(a);
+    const editor = createPixelEditorApp(a);
+
+    // Load file from command line arguments (like original pixeledit)
+    // Based on: main.go loadFileArgs()
+    if (process.argv.length > 2) {
+      const filepath = process.argv[2];
+      // Delay loading to allow UI to initialize
+      setTimeout(async () => {
+        try {
+          await editor.loadFile(filepath);
+          console.log(`Loaded file from command line: ${filepath}`);
+        } catch (error) {
+          console.error(`Failed to load file from command line: ${error}`);
+        }
+      }, 300);
+    }
   });
 }
