@@ -585,14 +585,14 @@ export class Locator {
    * Hover over the first widget matching this locator (fast fail)
    * Note: Requires windowId to be available (automatically determined from bridge)
    */
-  async hover(): Promise<void> {
+  async hover(x?: number, y?: number): Promise<void> {
     const widgetId = await this.find();
     if (!widgetId) {
       throwCallerError(`No widget found with ${this.selectorType}: ${this.selector}`, this.hover);
     }
     // Get first window ID from bridge (assumes single window for now)
     const windowId = 'window_1'; // TODO: Make this dynamic
-    await this.bridge.send('hoverWidget', { widgetId, windowId }, this.hover);
+    await this.bridge.send('hoverWidget', { widgetId, windowId, x, y }, this.hover);
   }
 
   /**

@@ -569,6 +569,7 @@ export class CanvasRaster {
   get width(): number { return this._width; }
   get height(): number { return this._height; }
 
+
   /**
    * Update individual pixels
    * @param updates Array of pixel updates {x, y, r, g, b, a}

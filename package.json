@@ -5,7 +5,7 @@
   "private": true,
   "scripts": {
     "build": "npm run build:bridge && npm run build:core",
-    "build:bridge": "cd bridge && CGO_ENABLED=1 /usr/local/go/bin/go build -o ../bin/tsyne-bridge .",
+    "build:bridge": "cd core/bridge && CGO_ENABLED=1 /usr/local/go/bin/go build -o ../../bin/tsyne-bridge .",
     "build:core": "cd core && npm run build",
     "build:designer": "cd designer && npm run build",
     "build:all": "npm run build && npm run build:designer",
@@ -18,10 +18,21 @@
     "clean": "rm -rf node_modules && cd core && rm -rf node_modules dist && cd ../designer && rm -rf node_modules dist"
   },
   "devDependencies": {
+    "@types/buffer-crc32": "^0.2.4",
     "@types/node": "^20.0.0",
     "typescript": "^5.0.0"
   },
   "engines": {
     "node": ">=16.0.0"
+  },
+  "dependencies": {
+    "@grpc/grpc-js": "^1.14.3",
+    "@grpc/proto-loader": "^0.8.0",
+    "@msgpack/msgpack": "^3.1.2",
+    "@resvg/resvg-js": "^2.6.2",
+    "@types/jest": "^30.0.0",
+    "buffer-crc32": "^1.0.0",
+    "jest": "^30.2.0",
+    "ts-jest": "^29.4.6"
   }
 }

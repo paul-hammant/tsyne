@@ -281,6 +281,7 @@ export class App {
     }
   }
 
+
   getContext(): Context {
     return this.ctx;
   }
