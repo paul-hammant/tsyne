@@ -17,6 +17,8 @@ A WhatsApp messaging client built with Tsyne's pseudo-declarative UI framework. 
 
 ## Architecture
 
+### High-Level Overview
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                  WhatsApp Tsyne App                             │
@@ -36,10 +38,12 @@ A WhatsApp messaging client built with Tsyne's pseudo-declarative UI framework. 
 │                          └─────────────────────────────────┘   │
 └────────────────────────────────────────────────────────────────┘
                                       │
-                                      ▼
+                                      ▼ (HTTP + WebSocket)
                           ┌───────────────────────┐
                           │   WAHA Server         │
-                          │   (HTTP + WebSocket)  │
+                          │ (Puppeteer +          │
+                          │  Chromium +           │
+                          │  WhatsApp Web)        │
                           └───────────────────────┘
                                       │
                                       ▼
@@ -47,6 +51,15 @@ A WhatsApp messaging client built with Tsyne's pseudo-declarative UI framework. 
                           │   WhatsApp Backend    │
                           └───────────────────────┘
 ```
+
+### How WAHA Works
+
+**Important:** WAHA itself runs **WhatsApp Web in a headless Chromium browser controlled by Puppeteer**. It's not a direct protocol client - it automates the web interface. The key advantage of WAHA's architecture:
+
+1. **Separation of Concerns**: Browser automation (heavy) runs on server, lightweight HTTP API on client
+2. **Session Isolation**: If WhatsApp detects automation on the WAHA server, your primary phone/account can remain unaffected
+3. **Flexibility**: Easy to move WAHA to a different server or recreate the session if needed
+4. **Clean API**: Clients interact via REST/WebSocket instead of managing browser automation directly
 
 ## Prerequisites
 
@@ -64,6 +77,95 @@ No prerequisites needed. The app will use a mock service with sample data.
    export WAHA_API_KEY="your-api-key"  # Optional
    export WAHA_SESSION="default"       # Optional
    ```
+
+## Deployment Architectures
+
+### Desktop (Current Recommended)
+```
+Desktop PC/Mac/Linux + Tsyne
+        ↓ (HTTP/WebSocket)
+WAHA Server (local or remote)
+        ↓
+WhatsApp
+```
+**Pros**: Reliable, good performance, easy to manage
+**Cons**: Requires WAHA server infrastructure
+
+### Mobile (Theoretical Options & Trade-offs)
+
+#### Option 1: Mobile App + Remote WAHA Server (Recommended)
+```
+Pixel 3a XL (aarch64)
+├─ Tsyne App (native Fyne UI)
+└─ Network connection to remote WAHA
+        ↓ HTTP/WebSocket
+WAHA Server (laptop, cloud, VPS)
+        ├─ Puppeteer + Chromium
+        └─ WhatsApp Web automation
+```
+**Pros:**
+- Isolation: If WAHA gets detected, your phone's WhatsApp remains functional
+- Resource-efficient on phone (lightweight Tsyne UI only)
+- Easy to recreate WAHA session if needed
+
+**Cons:**
+- Requires external server
+- Network dependency
+
+#### Option 2: Local Puppeteer on Phone (Not Recommended)
+```
+Pixel 3a XL (aarch64)
+├─ Tsyne UI (Fyne native)
+├─ Puppeteer + Chromium (local)
+└─ WhatsApp Web automation (local)
+        ↓
+WhatsApp
+```
+**Pros:**
+- Self-contained, no external server needed
+- Lower latency to automation layer
+
+**Cons:**
+- **Chromium binary bloat**: 100-200MB+ on aarch64 (significant on mobile)
+- **Resource constraints**: Phone CPU/RAM under heavy load
+- **Battery drain**: Continuous browser process
+- **Detection risk**: WhatsApp actively detects Puppeteer automation; if your phone gets flagged, YOUR WhatsApp access on that device is compromised
+- **Reliability**: More fragile than client-server separation
+- **Maintenance burden**: WhatsApp frequently updates; changes affect automation directly
+
+#### Option 3: Official WhatsApp APIs (Future)
+```
+Tsyne App ↔ WhatsApp Cloud API (REST)
+```
+**Status**: Requires business registration with Meta; not ideal for personal use
+**Pros**: Official, most stable
+**Cons**: Approval process, may not work for all use cases
+
+### Why Session Isolation Matters
+
+**Scenario: WhatsApp detects automation**
+
+With remote WAHA:
+- WAHA server's session gets flagged
+- Your phone's actual WhatsApp: ✅ Still works
+- Recovery: Restart WAHA with fresh session
+
+With local Puppeteer on phone:
+- Your phone's WhatsApp gets flagged
+- Your actual messaging: ❌ May be blocked
+- Recovery: Can take days or require account review
+
+**This is why Option 1 (remote WAHA) is architecturally superior for mobile**, even though it requires external infrastructure.
+
+### Future: Ideal Mobile Setup with Commercial Support
+
+The ideal scenario for Tsyne on mobile would require:
+- Phone manufacturers (Samsung, Google, OnePlus) or Meta Inc. sponsoring Fyne mobile development
+- Native first-class WebView + Fyne integration on aarch64/ARM
+- Official testing infrastructure on real devices
+- Performance optimization specifically for mobile constraints
+
+This would enable clean local implementations without the resource/detection risks listed above.
 
 ## Installation
 
