@@ -112,6 +112,9 @@ const point2d = proj.project({ x: 100, y: 100, z: 50 });
 const alpha = proj.getAlpha(point2d);  // Depth-based visibility
 ```
 
+**Demo App:**
+- **projections-cosyne** (`phone-apps/projections/`) - Rotating 3D globe with spherical projection + isometric block grid
+
 ### Phase 5: Transforms & Foreign Objects
 **Nested coordinate systems** and Tsyne widget embedding
 
@@ -130,6 +133,10 @@ c.foreign(100, 100, (app) => {
   });
 });
 ```
+
+**Demo Apps:**
+- **transforms-cosyne** (`phone-apps/transforms/`) - Nested coordinate transforms with rotating geometric patterns (star, rectangles, spiral, grid)
+- **foreign-objects-cosyne** (`phone-apps/foreign-objects/`) - Tsyne widgets controlling canvas graphics (buttons to change colors and animate)
 
 ### Phase 6: Test Applications
 **10 production-ready demo apps** with full source code
