@@ -1,0 +1,200 @@
+/**
+ * Cosyne Context - Main builder for declarative canvas compositions
+ *
+ * The CosyneContext wraps a Tsyne canvasStack and provides a fluent API
+ * for creating and binding canvas primitives.
+ */
+
+import { BindingRegistry, PositionBinding } from './binding';
+import { CosyneCircle, CircleOptions } from './primitives/circle';
+import { CosyneRect, RectOptions } from './primitives/rect';
+import { CosyneLine, LineOptions, LineEndpoints } from './primitives/line';
+import { Primitive } from './primitives/base';
+
+/**
+ * Main Cosyne builder context
+ */
+export class CosyneContext {
+  private bindingRegistry: BindingRegistry;
+  private primitives: Map<string | undefined, Primitive<any>> = new Map();
+  private allPrimitives: Primitive<any>[] = [];
+
+  constructor(private app: any) {
+    this.bindingRegistry = new BindingRegistry();
+  }
+
+  /**
+   * Create a circle primitive
+   */
+  circle(x: number, y: number, radius: number, options?: CircleOptions): CosyneCircle {
+    // Create the underlying Tsyne canvas circle
+    const underlying = this.app.canvasCircle({
+      x,
+      y,
+      x2: x + radius * 2,
+      y2: y + radius * 2,
+      fillColor: options?.fillColor || 'black',
+      strokeColor: options?.strokeColor,
+      strokeWidth: options?.strokeWidth || 1,
+    });
+
+    const primitive = new CosyneCircle(x, y, radius, underlying, options);
+    this.trackPrimitive(primitive);
+    return primitive;
+  }
+
+  /**
+   * Create a rectangle primitive
+   */
+  rect(x: number, y: number, width: number, height: number, options?: RectOptions): CosyneRect {
+    // Create the underlying Tsyne canvas rectangle
+    const underlying = this.app.canvasRectangle({
+      x,
+      y,
+      x2: x + width,
+      y2: y + height,
+      fillColor: options?.fillColor || 'black',
+      strokeColor: options?.strokeColor,
+      strokeWidth: options?.strokeWidth || 1,
+    });
+
+    const primitive = new CosyneRect(x, y, width, height, underlying, options);
+    this.trackPrimitive(primitive);
+    return primitive;
+  }
+
+  /**
+   * Create a line primitive
+   */
+  line(x1: number, y1: number, x2: number, y2: number, options?: LineOptions): CosyneLine {
+    // Create the underlying Tsyne canvas line
+    const underlying = this.app.canvasLine(x1, y1, x2, y2, {
+      strokeColor: options?.strokeColor || 'black',
+      strokeWidth: options?.strokeWidth || 1,
+    });
+
+    const primitive = new CosyneLine(x1, y1, x2, y2, underlying, options);
+    this.trackPrimitive(primitive);
+    return primitive;
+  }
+
+  /**
+   * Refresh all bindings - re-evaluates binding functions and updates primitives
+   */
+  refreshBindings(): void {
+    // Refresh position bindings
+    for (const primitive of this.allPrimitives) {
+      const posBinding = primitive.getPositionBinding();
+      if (posBinding) {
+        const pos = posBinding.evaluate();
+        primitive.updatePosition(pos);
+      }
+
+      // Handle line endpoint bindings specifically
+      if (primitive instanceof CosyneLine) {
+        const endBinding = primitive.getEndpointBinding();
+        if (endBinding) {
+          const endpoints = endBinding.evaluate();
+          primitive.updateEndpoints(endpoints);
+        }
+      }
+
+      // Refresh visibility bindings
+      const visBinding = primitive.getVisibleBinding();
+      if (visBinding) {
+        const visible = visBinding.evaluate();
+        primitive.updateVisibility(visible);
+      }
+    }
+  }
+
+  /**
+   * Get a primitive by ID
+   */
+  getPrimitiveById(id: string): Primitive<any> | undefined {
+    // Search through all primitives for the matching ID
+    // (IDs can be set after primitive creation via withId())
+    return this.allPrimitives.find(p => p.getId() === id);
+  }
+
+  /**
+   * Get all primitives of a specific type
+   */
+  getPrimitivesByType<T extends Primitive<any>>(type: typeof CosyneCircle | typeof CosyneRect | typeof CosyneLine): T[] {
+    return this.allPrimitives.filter(p => p instanceof type) as T[];
+  }
+
+  /**
+   * Get all primitives
+   */
+  getAllPrimitives(): Primitive<any>[] {
+    return [...this.allPrimitives];
+  }
+
+  /**
+   * Clear all primitives and bindings
+   */
+  clear(): void {
+    this.allPrimitives = [];
+    this.primitives.clear();
+    this.bindingRegistry.clear();
+  }
+
+  /**
+   * Internal: Track a primitive for later lookup and binding management
+   */
+  private trackPrimitive(primitive: Primitive<any>): void {
+    this.allPrimitives.push(primitive);
+    const id = primitive.getId();
+    if (id) {
+      this.primitives.set(id, primitive);
+    }
+  }
+}
+
+/**
+ * Factory function to create a Cosyne context within a Tsyne canvasStack
+ *
+ * Usage:
+ * ```typescript
+ * a.canvasStack(() => {
+ *   cosyne(a, (c) => {
+ *     c.circle(100, 100, 20).fill('#ff0000');
+ *     c.rect(50, 50, 100, 80).fill('#0000ff');
+ *   });
+ * });
+ * ```
+ */
+export function cosyne(app: any, builder: (context: CosyneContext) => void): CosyneContext {
+  const context = new CosyneContext(app);
+  builder(context);
+  return context;
+}
+
+/**
+ * Global registry to track active Cosyne contexts for refresh management
+ */
+let activeContexts: CosyneContext[] = [];
+
+/**
+ * Register a Cosyne context for global refresh
+ */
+export function registerCosyneContext(context: CosyneContext): void {
+  activeContexts.push(context);
+}
+
+/**
+ * Refresh all active Cosyne contexts
+ */
+export function refreshAllCosyneContexts(): void {
+  for (const context of activeContexts) {
+    context.refreshBindings();
+  }
+}
+
+/**
+ * Clear all registered contexts
+ */
+export function clearAllCosyneContexts(): void {
+  activeContexts = [];
+}
