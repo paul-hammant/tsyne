@@ -13,6 +13,11 @@ import { CosyneText, TextOptions } from './primitives/text';
 import { CosynePath, PathOptions } from './primitives/path';
 import { CosyneArc, ArcOptions } from './primitives/arc';
 import { CosyneWedge, WedgeOptions } from './primitives/wedge';
+import { CosyneGrid, GridOptions } from './primitives/grid';
+import { CosyneHeatmap, HeatmapOptions, HeatmapData } from './primitives/heatmap';
+import { CosynePolygon, PolygonOptions, Point } from './primitives/polygon';
+import { CosyneStar, StarOptions } from './primitives/star';
+import { CosyneGauge, GaugeOptions } from './primitives/gauge';
 import { Primitive } from './primitives/base';
 import { CirclesCollection, RectsCollection, LinesCollection } from './collections';
 import { TransformStack, TransformOptions } from './transforms';
@@ -245,6 +250,104 @@ export class CosyneContext {
     });
 
     const primitive = new CosyneWedge(x, y, radius, underlying, options);
+    this.trackPrimitive(primitive);
+    return primitive;
+  }
+
+  /**
+   * Create a grid primitive (Phase 7)
+   */
+  grid(x: number, y: number, options?: GridOptions): CosyneGrid {
+    const underlying = this.app.canvasGrid({
+      x,
+      y,
+      rows: options?.rows || 5,
+      cols: options?.cols || 5,
+      cellWidth: options?.cellWidth || 40,
+      cellHeight: options?.cellHeight || 30,
+      gridColor: options?.gridColor || '#cccccc',
+      gridWidth: options?.gridWidth || 1,
+    });
+
+    const primitive = new CosyneGrid(x, y, underlying, options);
+    this.trackPrimitive(primitive);
+    return primitive;
+  }
+
+  /**
+   * Create a heatmap primitive (Phase 7)
+   */
+  heatmap(x: number, y: number, options?: HeatmapOptions): CosyneHeatmap {
+    const underlying = this.app.canvasHeatmap({
+      x,
+      y,
+      cellWidth: options?.cellWidth || 30,
+      cellHeight: options?.cellHeight || 30,
+      colorScheme: options?.colorScheme || 'viridis',
+      minValue: options?.minValue || 0,
+      maxValue: options?.maxValue || 1,
+    });
+
+    const primitive = new CosyneHeatmap(x, y, underlying, options);
+    this.trackPrimitive(primitive);
+    return primitive;
+  }
+
+  /**
+   * Create a polygon primitive (Phase 7)
+   */
+  polygon(x: number, y: number, vertices: Point[], options?: PolygonOptions): CosynePolygon {
+    const underlying = this.app.canvasPolygon({
+      x,
+      y,
+      vertices,
+      fillColor: options?.fillColor || 'black',
+      strokeColor: options?.strokeColor,
+      strokeWidth: options?.strokeWidth || 1,
+    });
+
+    const primitive = new CosynePolygon(x, y, vertices, underlying, options);
+    this.trackPrimitive(primitive);
+    return primitive;
+  }
+
+  /**
+   * Create a star primitive (Phase 7)
+   */
+  star(x: number, y: number, options?: StarOptions): CosyneStar {
+    const underlying = this.app.canvasStar({
+      x,
+      y,
+      points: options?.points || 5,
+      innerRadius: options?.innerRadius || 10,
+      outerRadius: options?.outerRadius || 20,
+      fillColor: options?.fillColor || 'gold',
+      strokeColor: options?.strokeColor,
+      strokeWidth: options?.strokeWidth || 1,
+    });
+
+    const primitive = new CosyneStar(x, y, underlying, options);
+    this.trackPrimitive(primitive);
+    return primitive;
+  }
+
+  /**
+   * Create a gauge primitive (Phase 7)
+   */
+  gauge(x: number, y: number, options?: GaugeOptions): CosyneGauge {
+    const underlying = this.app.canvasGauge({
+      x,
+      y,
+      minValue: options?.minValue || 0,
+      maxValue: options?.maxValue || 100,
+      value: options?.value || 50,
+      radius: options?.radius || 50,
+      fillColor: options?.fillColor || '#f0f0f0',
+      strokeColor: options?.strokeColor || '#333333',
+      strokeWidth: options?.strokeWidth || 2,
+    });
+
+    const primitive = new CosyneGauge(x, y, underlying, options);
     this.trackPrimitive(primitive);
     return primitive;
   }
