@@ -134,16 +134,16 @@ c.foreign(100, 100, (app) => {
 ### Phase 6: Test Applications
 **10 production-ready demo apps** with full source code
 
-- **eyes-cosyne**: Mouse-following eyeballs (75% less code than original)
-- **clock-cosyne**: Animated analog clock with rotating hands
-- **particles-cosyne**: Physics simulation (gravity, velocity, damping)
-- **fractal-tree-cosyne**: Recursive tree with wind animation
-- **bar-chart-cosyne**: Animated data dashboard
-- **heatmap-demo-cosyne**: Real-time color-mapped data
-- **gauge-dashboard-cosyne**: Multi-gauge metric display
-- **spinner-cosyne**: Loading indicator animation
-- **circles-demo-cosyne**: Animated circular orbit
-- **interactive-shapes-cosyne**: Draggable, clickable shapes
+- **eyes-cosyne** (`phone-apps/eyes/`) - Mouse-following eyeballs (75% less code than original)
+- **clock-cosyne** (`phone-apps/clock/`) - Animated analog clock with rotating hands
+- **particles-cosyne** (`phone-apps/particles/`) - Physics simulation (gravity, velocity, damping)
+- **fractal-tree-cosyne** (`phone-apps/fractal-tree/`) - Recursive tree with wind animation
+- **bar-chart-cosyne** (`phone-apps/bar-chart/`) - Animated data dashboard
+- **heatmap-demo-cosyne** (`phone-apps/heatmap-demo/`) - Real-time color-mapped data
+- **gauge-dashboard-cosyne** (`phone-apps/gauge-dashboard/`) - Multi-gauge metric display
+- **spinner-cosyne** (`phone-apps/spinner/`) - Loading indicator animation
+- **circles-demo-cosyne** (`phone-apps/circles-demo/`) - Animated circular orbit
+- **interactive-shapes-cosyne** (`phone-apps/interactive-shapes/`) - Draggable, clickable shapes
 
 ### Phase 7: Advanced Primitives
 **Data visualization components** for complex applications
@@ -237,9 +237,9 @@ c.rect(50, 50, 100, 100)
 ```
 
 **3 Demo Applications:**
-1. **Animated Spinner** - Rotating circles with elastic easing and wave effects
-2. **Animated Dashboard** - Real-time metric visualization with smooth transitions
-3. **Bouncing Ball** - Physics simulation with gravity, drag, and collision bouncing
+1. **Animated Spinner** (`phone-apps/animated-spinner/`) - Rotating circles with elastic easing and wave effects
+2. **Animated Dashboard** (`phone-apps/animated-dashboard/`) - Real-time metric visualization with smooth transitions
+3. **Bouncing Ball** (`phone-apps/bouncing-ball/`) - Physics simulation with gravity, drag, and collision bouncing
 
 ---
 
