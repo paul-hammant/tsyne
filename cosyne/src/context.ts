@@ -15,6 +15,8 @@ import { CosyneArc, ArcOptions } from './primitives/arc';
 import { CosyneWedge, WedgeOptions } from './primitives/wedge';
 import { Primitive } from './primitives/base';
 import { CirclesCollection, RectsCollection, LinesCollection } from './collections';
+import { TransformStack, TransformOptions } from './transforms';
+import { ForeignObject, ForeignObjectCollection } from './foreign';
 
 /**
  * Main Cosyne builder context
@@ -23,6 +25,8 @@ export class CosyneContext {
   private bindingRegistry: BindingRegistry;
   private primitives: Map<string | undefined, Primitive<any>> = new Map();
   private allPrimitives: Primitive<any>[] = [];
+  private transformStack: TransformStack = new TransformStack();
+  private foreignObjects: ForeignObjectCollection = new ForeignObjectCollection();
 
   constructor(private app: any) {
     this.bindingRegistry = new BindingRegistry();
@@ -264,6 +268,46 @@ export class CosyneContext {
    */
   lines(): LinesCollection {
     return new LinesCollection(this);
+  }
+
+  /**
+   * Apply a transform to nested content
+   */
+  transform(options: TransformOptions, builder: (ctx: CosyneContext) => void): this {
+    this.transformStack.push(options);
+    builder(this);
+    this.transformStack.pop();
+    return this;
+  }
+
+  /**
+   * Get current transform stack
+   */
+  getTransformStack(): TransformStack {
+    return this.transformStack;
+  }
+
+  /**
+   * Embed a Tsyne widget at canvas coordinates
+   */
+  foreign(x: number, y: number, builder: (app: any) => void, options?: any): ForeignObject {
+    const foreign = new ForeignObject(x, y, builder, this.app, options);
+    this.foreignObjects.add(foreign);
+    return foreign;
+  }
+
+  /**
+   * Get foreign object by ID
+   */
+  getForeignById(id: string): ForeignObject | undefined {
+    return this.foreignObjects.getById(id);
+  }
+
+  /**
+   * Get all foreign objects
+   */
+  getAllForeignObjects(): ForeignObject[] {
+    return this.foreignObjects.getAll();
   }
 
   /**
