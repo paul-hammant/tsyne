@@ -5,6 +5,7 @@
 
 import { Primitive, PrimitiveOptions } from './base';
 import { PositionBinding } from '../binding';
+import { HitTester, DefaultHitTesters } from '../events';
 
 export interface HeatmapOptions extends PrimitiveOptions {
   cellWidth?: number;
@@ -151,5 +152,21 @@ export class CosyneHeatmap extends Primitive<any> {
         colorScheme: this.colorScheme,
       });
     }
+  }
+
+  /**
+   * Get hit tester for this heatmap (bounding box)
+   */
+  getHitTester(): HitTester {
+    return (x: number, y: number): boolean => {
+      if (!this.data) return false;
+      return DefaultHitTesters.rect(
+        x, y,
+        this.x, this.y,
+        this.x + this.data.cols * this.cellWidth,
+        this.y + this.data.rows * this.cellHeight,
+        1
+      );
+    };
   }
 }

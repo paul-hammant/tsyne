@@ -4,6 +4,7 @@
 
 import { Primitive, PrimitiveOptions } from './base';
 import { PositionBinding } from '../binding';
+import { HitTester, DefaultHitTesters } from '../events';
 
 export interface WedgeOptions extends PrimitiveOptions {
   radius?: number;
@@ -119,6 +120,10 @@ export class CosyneWedge extends Primitive<any> {
     // Canvas alpha updates would be implemented here
   }
 
+  updateRotation(): void {
+    // Rotation updates would apply to projection context
+  }
+
   /**
    * Update the underlying Tsyne widget with current properties
    */
@@ -132,5 +137,19 @@ export class CosyneWedge extends Primitive<any> {
         endAngle: this.endAngle,
       });
     }
+  }
+
+  /**
+   * Get hit tester for this wedge (full radial sector)
+   */
+  getHitTester(): HitTester {
+    return (x: number, y: number): boolean => {
+      return DefaultHitTesters.arc(
+        x, y,
+        this.x, this.y,
+        0, this.radius,
+        this.startAngle, this.endAngle
+      );
+    };
   }
 }

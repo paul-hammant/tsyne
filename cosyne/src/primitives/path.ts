@@ -4,6 +4,7 @@
 
 import { Primitive, PrimitiveOptions } from './base';
 import { PositionBinding } from '../binding';
+import { HitTester, DefaultHitTesters } from '../events';
 
 export interface PathOptions extends PrimitiveOptions {}
 
@@ -87,6 +88,10 @@ export class CosynePath extends Primitive<any> {
     // Canvas alpha updates would be implemented here
   }
 
+  updateRotation(): void {
+    // Rotation updates would apply to projection context
+  }
+
   /**
    * Update the underlying Tsyne widget with current properties
    */
@@ -98,5 +103,20 @@ export class CosynePath extends Primitive<any> {
         y: this.y,
       });
     }
+  }
+
+  /**
+   * Get hit tester for this path (bounding box approximation)
+   */
+  getHitTester(): HitTester {
+    return (x: number, y: number): boolean => {
+      const size = 100;
+      return DefaultHitTesters.rect(
+        x, y,
+        this.x, this.y,
+        this.x + size, this.y + size,
+        this.strokeWidth || 1
+      );
+    };
   }
 }

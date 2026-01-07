@@ -474,31 +474,3 @@ export function refreshAllCosyneContexts(): void {
 export function clearAllCosyneContexts(): void {
   contextRegistry = [];
 }
-
-/**
- * Global registry to track active Cosyne contexts for refresh management
- */
-let activeContexts: CosyneContext[] = [];
-
-/**
- * Register a Cosyne context for global refresh
- */
-export function registerCosyneContext(context: CosyneContext): void {
-  activeContexts.push(context);
-}
-
-/**
- * Refresh all active Cosyne contexts
- */
-export function refreshAllCosyneContexts(): void {
-  for (const context of activeContexts) {
-    context.refreshBindings();
-  }
-}
-
-/**
- * Clear all registered contexts
- */
-export function clearAllCosyneContexts(): void {
-  activeContexts = [];
-}

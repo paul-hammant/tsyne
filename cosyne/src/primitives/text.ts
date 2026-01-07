@@ -4,6 +4,7 @@
 
 import { Primitive, PrimitiveOptions } from './base';
 import { PositionBinding } from '../binding';
+import { HitTester, DefaultHitTesters } from '../events';
 
 export interface TextOptions extends PrimitiveOptions {
   fontSize?: number;
@@ -105,6 +106,10 @@ export class CosyneText extends Primitive<any> {
     // Canvas alpha updates would be implemented here
   }
 
+  updateRotation(): void {
+    // Rotation updates would apply to projection context
+  }
+
   /**
    * Update the underlying Tsyne widget with current properties
    */
@@ -119,5 +124,21 @@ export class CosyneText extends Primitive<any> {
         fontWeight: this.fontWeight,
       });
     }
+  }
+
+  /**
+   * Get hit tester for this text (bounding box approximation)
+   */
+  getHitTester(): HitTester {
+    return (x: number, y: number): boolean => {
+      const approximateWidth = this.fontSize * 0.6 * this.text.length;
+      const approximateHeight = this.fontSize;
+      return DefaultHitTesters.rect(
+        x, y,
+        this.x, this.y - approximateHeight,
+        this.x + approximateWidth, this.y,
+        1
+      );
+    };
   }
 }

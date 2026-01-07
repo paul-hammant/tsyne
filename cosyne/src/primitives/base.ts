@@ -4,12 +4,26 @@
 
 import { Binding, BindingFunction, PositionBinding } from '../binding';
 import { RotationAngles } from '../projections';
+import { HitTester } from '../events';
 
 export interface PrimitiveOptions {
   id?: string;
   fillColor?: string;
   strokeColor?: string;
   strokeWidth?: number;
+}
+
+/**
+ * Event handlers for interactive primitives
+ */
+export interface PrimitiveEventHandlers {
+  onClick?: (e: { x: number; y: number }) => void | Promise<void>;
+  onMouseMove?: (e: { x: number; y: number }) => void;
+  onMouseEnter?: (e: { x: number; y: number }) => void;
+  onMouseLeave?: () => void;
+  onDragStart?: (e: { x: number; y: number }) => void;
+  onDrag?: (e: { x: number; y: number; deltaX: number; deltaY: number }) => void;
+  onDragEnd?: () => void;
 }
 
 /**
@@ -27,6 +41,15 @@ export abstract class Primitive<TUnderlyingWidget> {
   protected alphaBinding: Binding<number> | undefined;
   protected visibleBinding: Binding<boolean> | undefined;
   protected rotationBinding: Binding<RotationAngles> | undefined;
+
+  // Event handlers
+  protected onClickHandler: ((e: { x: number; y: number }) => void | Promise<void>) | undefined;
+  protected onMouseMoveHandler: ((e: { x: number; y: number }) => void) | undefined;
+  protected onMouseEnterHandler: ((e: { x: number; y: number }) => void) | undefined;
+  protected onMouseLeaveHandler: (() => void) | undefined;
+  protected onDragStartHandler: ((e: { x: number; y: number }) => void) | undefined;
+  protected onDragHandler: ((e: { x: number; y: number; deltaX: number; deltaY: number }) => void) | undefined;
+  protected onDragEndHandler: (() => void) | undefined;
 
   constructor(
     protected underlying: TUnderlyingWidget,
@@ -178,6 +201,126 @@ export abstract class Primitive<TUnderlyingWidget> {
   }
 
   /**
+   * Register click/tap handler
+   */
+  onClick(handler: (e: { x: number; y: number }) => void | Promise<void>): this {
+    this.onClickHandler = handler;
+    return this;
+  }
+
+  /**
+   * Register mouse move handler
+   */
+  onMouseMove(handler: (e: { x: number; y: number }) => void): this {
+    this.onMouseMoveHandler = handler;
+    return this;
+  }
+
+  /**
+   * Register mouse enter handler
+   */
+  onMouseEnter(handler: (e: { x: number; y: number }) => void): this {
+    this.onMouseEnterHandler = handler;
+    return this;
+  }
+
+  /**
+   * Register mouse leave handler
+   */
+  onMouseLeave(handler: () => void): this {
+    this.onMouseLeaveHandler = handler;
+    return this;
+  }
+
+  /**
+   * Register drag start handler
+   */
+  onDragStart(handler: (e: { x: number; y: number }) => void): this {
+    this.onDragStartHandler = handler;
+    return this;
+  }
+
+  /**
+   * Register drag handler (fires continuously while dragging)
+   */
+  onDrag(handler: (e: { x: number; y: number; deltaX: number; deltaY: number }) => void): this {
+    this.onDragHandler = handler;
+    return this;
+  }
+
+  /**
+   * Register drag end handler
+   */
+  onDragEnd(handler: () => void): this {
+    this.onDragEndHandler = handler;
+    return this;
+  }
+
+  /**
+   * Get click handler (for event routing)
+   */
+  getClickHandler(): ((e: { x: number; y: number }) => void | Promise<void>) | undefined {
+    return this.onClickHandler;
+  }
+
+  /**
+   * Get mouse move handler (for event routing)
+   */
+  getMouseMoveHandler(): ((e: { x: number; y: number }) => void) | undefined {
+    return this.onMouseMoveHandler;
+  }
+
+  /**
+   * Get mouse enter handler (for event routing)
+   */
+  getMouseEnterHandler(): ((e: { x: number; y: number }) => void) | undefined {
+    return this.onMouseEnterHandler;
+  }
+
+  /**
+   * Get mouse leave handler (for event routing)
+   */
+  getMouseLeaveHandler(): (() => void) | undefined {
+    return this.onMouseLeaveHandler;
+  }
+
+  /**
+   * Get drag start handler (for event routing)
+   */
+  getDragStartHandler(): ((e: { x: number; y: number }) => void) | undefined {
+    return this.onDragStartHandler;
+  }
+
+  /**
+   * Get drag handler (for event routing)
+   */
+  getDragHandler(): ((e: { x: number; y: number; deltaX: number; deltaY: number }) => void) | undefined {
+    return this.onDragHandler;
+  }
+
+  /**
+   * Get drag end handler (for event routing)
+   */
+  getDragEndHandler(): (() => void) | undefined {
+    return this.onDragEndHandler;
+  }
+
+  /**
+   * Check if this primitive has any event handlers
+   */
+  hasEventHandlers(): boolean {
+    return !!(
+      this.onClickHandler ||
+      this.onMouseMoveHandler ||
+      this.onMouseEnterHandler ||
+      this.onMouseLeaveHandler ||
+      this.onDragStartHandler ||
+      this.onDragHandler ||
+      this.onDragEndHandler
+    );
+  }
+
+  /**
    * Apply fill color to underlying widget (implemented by subclasses)
    */
   protected abstract applyFill(): void;
@@ -216,4 +359,10 @@ export abstract class Primitive<TUnderlyingWidget> {
    * Update rotation from binding (implemented by subclasses)
    */
   abstract updateRotation(rotation: RotationAngles): void;
+
+  /**
+   * Get hit tester for this primitive (for event handling)
+   * Returns a function that tests if a point is inside/on the primitive
+   */
+  abstract getHitTester(): HitTester;
 }

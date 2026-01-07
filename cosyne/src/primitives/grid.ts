@@ -5,6 +5,7 @@
 
 import { Primitive, PrimitiveOptions } from './base';
 import { PositionBinding } from '../binding';
+import { HitTester, DefaultHitTesters } from '../events';
 
 export interface GridOptions extends PrimitiveOptions {
   rows?: number;
@@ -135,5 +136,20 @@ export class CosyneGrid extends Primitive<any> {
         gridWidth: this.gridWidth,
       });
     }
+  }
+
+  /**
+   * Get hit tester for this grid (bounding box)
+   */
+  getHitTester(): HitTester {
+    return (x: number, y: number): boolean => {
+      return DefaultHitTesters.rect(
+        x, y,
+        this.x, this.y,
+        this.x + this.cols * this.cellWidth,
+        this.y + this.rows * this.cellHeight,
+        this.gridWidth || 1
+      );
+    };
   }
 }

@@ -4,6 +4,7 @@
 
 import { Primitive, PrimitiveOptions } from './base';
 import { PositionBinding, Binding, BindingFunction } from '../binding';
+import { HitTester, DefaultHitTesters } from '../events';
 
 export interface LineEndpoints {
   x1: number;
@@ -104,6 +105,10 @@ export class CosyneLine extends Primitive<any> {
     // Canvas alpha updates would be implemented here
   }
 
+  updateRotation(): void {
+    // Rotation updates would apply to projection context
+  }
+
   /**
    * Update the underlying Tsyne widget with current properties
    */
@@ -116,5 +121,18 @@ export class CosyneLine extends Primitive<any> {
         y2: this.y2,
       });
     }
+  }
+
+  /**
+   * Get hit tester for this line (distance to line segment)
+   */
+  getHitTester(): HitTester {
+    return (x: number, y: number): boolean => {
+      return DefaultHitTesters.line(
+        x, y,
+        this.x1, this.y1, this.x2, this.y2,
+        this.strokeWidth || 1
+      );
+    };
   }
 }

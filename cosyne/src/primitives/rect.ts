@@ -5,6 +5,7 @@
 import { Primitive, PrimitiveOptions } from './base';
 import { PositionBinding } from '../binding';
 import { RotationAngles } from '../projections';
+import { HitTester, DefaultHitTesters } from '../events';
 
 export interface RectOptions extends PrimitiveOptions {
   width?: number;
@@ -115,5 +116,22 @@ export class CosyneRect extends Primitive<any> {
         y2: this.y + this.height,
       });
     }
+  }
+
+  /**
+   * Get hit tester for this rectangle (point in bounding box)
+   */
+  getHitTester(): HitTester {
+    return (x: number, y: number): boolean => {
+      return DefaultHitTesters.rect(
+        x,
+        y,
+        this.x,
+        this.y,
+        this.x + this.width,
+        this.y + this.height,
+        this.strokeWidth || 1
+      );
+    };
   }
 }

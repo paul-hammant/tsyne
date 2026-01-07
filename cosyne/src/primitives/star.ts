@@ -5,6 +5,7 @@
 
 import { Primitive, PrimitiveOptions } from './base';
 import { PositionBinding } from '../binding';
+import { HitTester, DefaultHitTesters } from '../events';
 
 export interface StarOptions extends PrimitiveOptions {
   points?: number;
@@ -142,5 +143,19 @@ export class CosyneStar extends Primitive<any> {
         outerRadius: this.outerRadius,
       });
     }
+  }
+
+  /**
+   * Get hit tester for this star (point-in-polygon using vertices)
+   */
+  getHitTester(): HitTester {
+    return (x: number, y: number): boolean => {
+      const relativeVertices = this.getVertices();
+      const absoluteVertices = relativeVertices.map(v => ({
+        x: v.x + this.x,
+        y: v.y + this.y
+      }));
+      return DefaultHitTesters.polygon(x, y, absoluteVertices);
+    };
   }
 }

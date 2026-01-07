@@ -5,6 +5,7 @@
 
 import { Primitive, PrimitiveOptions } from './base';
 import { PositionBinding } from '../binding';
+import { HitTester, DefaultHitTesters } from '../events';
 
 export interface Point {
   x: number;
@@ -123,5 +124,18 @@ export class CosynePolygon extends Primitive<any> {
         vertices: this.vertices,
       });
     }
+  }
+
+  /**
+   * Get hit tester for this polygon (point-in-polygon)
+   */
+  getHitTester(): HitTester {
+    return (x: number, y: number): boolean => {
+      const absoluteVertices = this.vertices.map(v => ({
+        x: v.x + this.x,
+        y: v.y + this.y
+      }));
+      return DefaultHitTesters.polygon(x, y, absoluteVertices);
+    };
   }
 }

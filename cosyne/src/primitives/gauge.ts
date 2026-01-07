@@ -5,6 +5,7 @@
 
 import { Primitive, PrimitiveOptions } from './base';
 import { PositionBinding, Binding, BindingFunction } from '../binding';
+import { HitTester, DefaultHitTesters } from '../events';
 
 export interface GaugeOptions extends PrimitiveOptions {
   minValue?: number;
@@ -157,5 +158,19 @@ export class CosyneGauge extends Primitive<any> {
         valueColor: this.getValueColor(),
       });
     }
+  }
+
+  /**
+   * Get hit tester for this gauge (full circle)
+   */
+  getHitTester(): HitTester {
+    return (x: number, y: number): boolean => {
+      return DefaultHitTesters.arc(
+        x, y,
+        this.x, this.y,
+        0, this.radius,
+        0, Math.PI * 2
+      );
+    };
   }
 }

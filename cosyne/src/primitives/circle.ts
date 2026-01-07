@@ -5,6 +5,7 @@
 import { Primitive, PrimitiveOptions } from './base';
 import { PositionBinding } from '../binding';
 import { RotationAngles } from '../projections';
+import { HitTester, DefaultHitTesters } from '../events';
 
 export interface CircleOptions extends PrimitiveOptions {
   radius?: number;
@@ -121,5 +122,14 @@ export class CosyneCircle extends Primitive<any> {
         y2: this.y + this.radius * 2,
       });
     }
+  }
+
+  /**
+   * Get hit tester for this circle (point in circle)
+   */
+  getHitTester(): HitTester {
+    return (x: number, y: number): boolean => {
+      return DefaultHitTesters.circle(x, y, this.x, this.y, this.radius);
+    };
   }
 }
