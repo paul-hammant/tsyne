@@ -4,6 +4,7 @@
 
 import { Primitive, PrimitiveOptions } from './base';
 import { PositionBinding } from '../binding';
+import { RotationAngles } from '../projections';
 
 export interface RectOptions extends PrimitiveOptions {
   width?: number;
@@ -96,6 +97,10 @@ export class CosyneRect extends Primitive<any> {
   updateAlpha(alpha: number): void {
     this.alpha = alpha;
     // Canvas alpha updates would be implemented here
+  }
+
+  updateRotation(rotation: RotationAngles): void {
+    // Rotation updates would apply to projection context
   }
 
   /**

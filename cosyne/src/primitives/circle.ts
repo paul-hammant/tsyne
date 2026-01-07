@@ -4,6 +4,7 @@
 
 import { Primitive, PrimitiveOptions } from './base';
 import { PositionBinding } from '../binding';
+import { RotationAngles } from '../projections';
 
 export interface CircleOptions extends PrimitiveOptions {
   radius?: number;
@@ -101,6 +102,11 @@ export class CosyneCircle extends Primitive<any> {
   updateAlpha(alpha: number): void {
     this.alpha = alpha;
     // Canvas alpha updates would be implemented here
+  }
+
+  updateRotation(rotation: RotationAngles): void {
+    // Rotation updates would apply to projection context
+    // For primitives, this is handled by the projection system
   }
 
   /**

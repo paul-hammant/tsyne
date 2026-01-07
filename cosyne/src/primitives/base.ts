@@ -3,6 +3,7 @@
  */
 
 import { Binding, BindingFunction, PositionBinding } from '../binding';
+import { RotationAngles } from '../projections';
 
 export interface PrimitiveOptions {
   id?: string;
@@ -25,6 +26,7 @@ export abstract class Primitive<TUnderlyingWidget> {
   protected strokeBinding: Binding<string> | undefined;
   protected alphaBinding: Binding<number> | undefined;
   protected visibleBinding: Binding<boolean> | undefined;
+  protected rotationBinding: Binding<RotationAngles> | undefined;
 
   constructor(
     protected underlying: TUnderlyingWidget,
@@ -119,6 +121,14 @@ export abstract class Primitive<TUnderlyingWidget> {
   }
 
   /**
+   * Bind rotation angles (for projections)
+   */
+  bindRotation(fn: BindingFunction<RotationAngles>): this {
+    this.rotationBinding = new Binding(fn);
+    return this;
+  }
+
+  /**
    * Get the underlying Tsyne widget
    */
   getUnderlying(): TUnderlyingWidget {
@@ -161,6 +171,13 @@ export abstract class Primitive<TUnderlyingWidget> {
   }
 
   /**
+   * Get rotation binding if set
+   */
+  getRotationBinding(): Binding<RotationAngles> | undefined {
+    return this.rotationBinding;
+  }
+
+  /**
    * Apply fill color to underlying widget (implemented by subclasses)
    */
   protected abstract applyFill(): void;
@@ -194,4 +211,9 @@ export abstract class Primitive<TUnderlyingWidget> {
    * Update alpha from binding (implemented by subclasses)
    */
   abstract updateAlpha(alpha: number): void;
+
+  /**
+   * Update rotation from binding (implemented by subclasses)
+   */
+  abstract updateRotation(rotation: RotationAngles): void;
 }
