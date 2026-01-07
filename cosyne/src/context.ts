@@ -9,6 +9,10 @@ import { BindingRegistry, PositionBinding } from './binding';
 import { CosyneCircle, CircleOptions } from './primitives/circle';
 import { CosyneRect, RectOptions } from './primitives/rect';
 import { CosyneLine, LineOptions, LineEndpoints } from './primitives/line';
+import { CosyneText, TextOptions } from './primitives/text';
+import { CosynePath, PathOptions } from './primitives/path';
+import { CosyneArc, ArcOptions } from './primitives/arc';
+import { CosyneWedge, WedgeOptions } from './primitives/wedge';
 import { Primitive } from './primitives/base';
 
 /**
@@ -82,8 +86,8 @@ export class CosyneContext {
    * Refresh all bindings - re-evaluates binding functions and updates primitives
    */
   refreshBindings(): void {
-    // Refresh position bindings
     for (const primitive of this.allPrimitives) {
+      // Refresh position bindings
       const posBinding = primitive.getPositionBinding();
       if (posBinding) {
         const pos = posBinding.evaluate();
@@ -97,6 +101,27 @@ export class CosyneContext {
           const endpoints = endBinding.evaluate();
           primitive.updateEndpoints(endpoints);
         }
+      }
+
+      // Refresh fill color bindings
+      const fillBinding = primitive.getFillBinding();
+      if (fillBinding) {
+        const color = fillBinding.evaluate();
+        primitive.updateFill(color);
+      }
+
+      // Refresh stroke color bindings
+      const strokeBinding = primitive.getStrokeBinding();
+      if (strokeBinding) {
+        const color = strokeBinding.evaluate();
+        primitive.updateStroke(color);
+      }
+
+      // Refresh alpha bindings
+      const alphaBinding = primitive.getAlphaBinding();
+      if (alphaBinding) {
+        const alpha = alphaBinding.evaluate();
+        primitive.updateAlpha(alpha);
       }
 
       // Refresh visibility bindings
@@ -138,6 +163,85 @@ export class CosyneContext {
     this.allPrimitives = [];
     this.primitives.clear();
     this.bindingRegistry.clear();
+  }
+
+  /**
+   * Create a text primitive
+   */
+  text(x: number, y: number, text: string, options?: any): CosyneText {
+    // Create the underlying Tsyne canvas text
+    const underlying = this.app.canvasText({
+      x,
+      y,
+      text,
+      fontSize: options?.fontSize || 12,
+      fillColor: options?.fillColor || 'black',
+    });
+
+    const primitive = new CosyneText(x, y, text, underlying, options);
+    this.trackPrimitive(primitive);
+    return primitive;
+  }
+
+  /**
+   * Create a path primitive
+   */
+  path(pathString: string, options?: any): CosynePath {
+    // Create the underlying Tsyne canvas path
+    const underlying = this.app.canvasPath({
+      pathString,
+      x: options?.x || 0,
+      y: options?.y || 0,
+      fillColor: options?.fillColor || 'black',
+      strokeColor: options?.strokeColor,
+      strokeWidth: options?.strokeWidth || 1,
+    });
+
+    const primitive = new CosynePath(pathString, underlying, options);
+    this.trackPrimitive(primitive);
+    return primitive;
+  }
+
+  /**
+   * Create an arc primitive
+   */
+  arc(x: number, y: number, radius: number, options?: any): CosyneArc {
+    // Create the underlying Tsyne canvas arc
+    const underlying = this.app.canvasArc({
+      x,
+      y,
+      radius,
+      startAngle: options?.startAngle || 0,
+      endAngle: options?.endAngle || Math.PI / 2,
+      fillColor: options?.fillColor || 'black',
+      strokeColor: options?.strokeColor,
+      strokeWidth: options?.strokeWidth || 1,
+    });
+
+    const primitive = new CosyneArc(x, y, radius, underlying, options);
+    this.trackPrimitive(primitive);
+    return primitive;
+  }
+
+  /**
+   * Create a wedge primitive
+   */
+  wedge(x: number, y: number, radius: number, options?: any): CosyneWedge {
+    // Create the underlying Tsyne canvas wedge
+    const underlying = this.app.canvasWedge({
+      x,
+      y,
+      radius,
+      startAngle: options?.startAngle || 0,
+      endAngle: options?.endAngle || Math.PI / 2,
+      fillColor: options?.fillColor || 'black',
+      strokeColor: options?.strokeColor,
+      strokeWidth: options?.strokeWidth || 1,
+    });
+
+    const primitive = new CosyneWedge(x, y, radius, underlying, options);
+    this.trackPrimitive(primitive);
+    return primitive;
   }
 
   /**

@@ -19,7 +19,11 @@ export abstract class Primitive<TUnderlyingWidget> {
   protected fillColor: string | undefined;
   protected strokeColor: string | undefined;
   protected strokeWidth: number | undefined;
+  protected alpha: number = 1.0;
   protected positionBinding: Binding<PositionBinding> | undefined;
+  protected fillBinding: Binding<string> | undefined;
+  protected strokeBinding: Binding<string> | undefined;
+  protected alphaBinding: Binding<number> | undefined;
   protected visibleBinding: Binding<boolean> | undefined;
 
   constructor(
@@ -91,6 +95,30 @@ export abstract class Primitive<TUnderlyingWidget> {
   }
 
   /**
+   * Bind fill color to a function
+   */
+  bindFill(fn: BindingFunction<string>): this {
+    this.fillBinding = new Binding(fn);
+    return this;
+  }
+
+  /**
+   * Bind stroke color to a function
+   */
+  bindStroke(fn: BindingFunction<string>): this {
+    this.strokeBinding = new Binding(fn);
+    return this;
+  }
+
+  /**
+   * Bind alpha (opacity) to a function
+   */
+  bindAlpha(fn: BindingFunction<number>): this {
+    this.alphaBinding = new Binding(fn);
+    return this;
+  }
+
+  /**
    * Get the underlying Tsyne widget
    */
   getUnderlying(): TUnderlyingWidget {
@@ -112,6 +140,27 @@ export abstract class Primitive<TUnderlyingWidget> {
   }
 
   /**
+   * Get fill binding if set
+   */
+  getFillBinding(): Binding<string> | undefined {
+    return this.fillBinding;
+  }
+
+  /**
+   * Get stroke binding if set
+   */
+  getStrokeBinding(): Binding<string> | undefined {
+    return this.strokeBinding;
+  }
+
+  /**
+   * Get alpha binding if set
+   */
+  getAlphaBinding(): Binding<number> | undefined {
+    return this.alphaBinding;
+  }
+
+  /**
    * Apply fill color to underlying widget (implemented by subclasses)
    */
   protected abstract applyFill(): void;
@@ -130,4 +179,19 @@ export abstract class Primitive<TUnderlyingWidget> {
    * Update visibility from binding (implemented by subclasses)
    */
   abstract updateVisibility(visible: boolean): void;
+
+  /**
+   * Update fill color from binding (implemented by subclasses)
+   */
+  abstract updateFill(color: string): void;
+
+  /**
+   * Update stroke color from binding (implemented by subclasses)
+   */
+  abstract updateStroke(color: string): void;
+
+  /**
+   * Update alpha from binding (implemented by subclasses)
+   */
+  abstract updateAlpha(alpha: number): void;
 }

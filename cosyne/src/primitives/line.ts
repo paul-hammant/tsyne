@@ -90,6 +90,20 @@ export class CosyneLine extends Primitive<any> {
     // Visibility updates would be handled by the canvas stack
   }
 
+  updateFill(color: string): void {
+    // Lines don't have fill, ignore
+  }
+
+  updateStroke(color: string): void {
+    this.strokeColor = color;
+    this.applyStroke();
+  }
+
+  updateAlpha(alpha: number): void {
+    this.alpha = alpha;
+    // Canvas alpha updates would be implemented here
+  }
+
   /**
    * Update the underlying Tsyne widget with current properties
    */

@@ -1,31 +1,41 @@
 /**
- * Circle primitive for Cosyne
+ * Wedge primitive for Cosyne - pie slice or circular sector
  */
 
 import { Primitive, PrimitiveOptions } from './base';
 import { PositionBinding } from '../binding';
 
-export interface CircleOptions extends PrimitiveOptions {
+export interface WedgeOptions extends PrimitiveOptions {
   radius?: number;
+  startAngle?: number;
+  endAngle?: number;
 }
 
 /**
- * Circle primitive - wraps Tsyne canvasCircle
+ * Wedge primitive - pie slice from center to arc
  */
-export class CosyneCircle extends Primitive<any> {
+export class CosyneWedge extends Primitive<any> {
   private x: number;
   private y: number;
   private radius: number;
+  private startAngle: number = 0;
+  private endAngle: number = Math.PI / 2;
 
-  constructor(x: number, y: number, radius: number, underlying: any, options?: CircleOptions) {
+  constructor(x: number, y: number, radius: number, underlying: any, options?: WedgeOptions) {
     super(underlying, options);
     this.x = x;
     this.y = y;
     this.radius = radius || 10;
+    if (options?.startAngle !== undefined) {
+      this.startAngle = options.startAngle;
+    }
+    if (options?.endAngle !== undefined) {
+      this.endAngle = options.endAngle;
+    }
   }
 
   /**
-   * Get current position
+   * Get current position (center)
    */
   getPosition(): { x: number; y: number } {
     return { x: this.x, y: this.y };
@@ -48,17 +58,25 @@ export class CosyneCircle extends Primitive<any> {
   }
 
   /**
-   * Bind radius to a function
+   * Set start angle (in radians)
    */
-  bindRadius(fn: () => number): this {
-    // Store the radius binding and apply it during refresh
-    (this as any)._radiusBinding = fn;
+  setStartAngle(angle: number): this {
+    this.startAngle = angle;
+    this.updateUnderlying();
+    return this;
+  }
+
+  /**
+   * Set end angle (in radians)
+   */
+  setEndAngle(angle: number): this {
+    this.endAngle = angle;
+    this.updateUnderlying();
     return this;
   }
 
   protected applyFill(): void {
     if (this.underlying && this.fillColor) {
-      // Update fill color on underlying widget
       if (this.underlying.updateFillColor) {
         this.underlying.updateFillColor(this.fillColor);
       }
@@ -67,7 +85,6 @@ export class CosyneCircle extends Primitive<any> {
 
   protected applyStroke(): void {
     if (this.underlying && this.strokeColor !== undefined) {
-      // Update stroke on underlying widget
       if (this.underlying.updateStrokeColor) {
         this.underlying.updateStrokeColor(this.strokeColor);
       }
@@ -85,7 +102,6 @@ export class CosyneCircle extends Primitive<any> {
 
   updateVisibility(visible: boolean): void {
     // Visibility updates would be handled by the canvas stack
-    // For now, this is a no-op but the infrastructure is in place
   }
 
   updateFill(color: string): void {
@@ -111,8 +127,9 @@ export class CosyneCircle extends Primitive<any> {
       this.underlying.update({
         x: this.x,
         y: this.y,
-        x2: this.x + this.radius * 2,
-        y2: this.y + this.radius * 2,
+        radius: this.radius,
+        startAngle: this.startAngle,
+        endAngle: this.endAngle,
       });
     }
   }

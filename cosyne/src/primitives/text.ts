@@ -1,27 +1,41 @@
 /**
- * Circle primitive for Cosyne
+ * Text primitive for Cosyne
  */
 
 import { Primitive, PrimitiveOptions } from './base';
 import { PositionBinding } from '../binding';
 
-export interface CircleOptions extends PrimitiveOptions {
-  radius?: number;
+export interface TextOptions extends PrimitiveOptions {
+  fontSize?: number;
+  fontFamily?: string;
+  fontWeight?: string;
 }
 
 /**
- * Circle primitive - wraps Tsyne canvasCircle
+ * Text primitive - wraps Tsyne canvasText
  */
-export class CosyneCircle extends Primitive<any> {
+export class CosyneText extends Primitive<any> {
   private x: number;
   private y: number;
-  private radius: number;
+  private text: string;
+  private fontSize: number = 12;
+  private fontFamily: string = 'sans-serif';
+  private fontWeight: string = 'normal';
 
-  constructor(x: number, y: number, radius: number, underlying: any, options?: CircleOptions) {
+  constructor(x: number, y: number, text: string, underlying: any, options?: TextOptions) {
     super(underlying, options);
     this.x = x;
     this.y = y;
-    this.radius = radius || 10;
+    this.text = text;
+    if (options?.fontSize) {
+      this.fontSize = options.fontSize;
+    }
+    if (options?.fontFamily) {
+      this.fontFamily = options.fontFamily;
+    }
+    if (options?.fontWeight) {
+      this.fontWeight = options.fontWeight;
+    }
   }
 
   /**
@@ -32,33 +46,23 @@ export class CosyneCircle extends Primitive<any> {
   }
 
   /**
-   * Get current radius
+   * Get current text content
    */
-  getRadius(): number {
-    return this.radius;
+  getText(): string {
+    return this.text;
   }
 
   /**
-   * Set radius
+   * Set text content
    */
-  setRadius(radius: number): this {
-    this.radius = radius;
+  setText(text: string): this {
+    this.text = text;
     this.updateUnderlying();
-    return this;
-  }
-
-  /**
-   * Bind radius to a function
-   */
-  bindRadius(fn: () => number): this {
-    // Store the radius binding and apply it during refresh
-    (this as any)._radiusBinding = fn;
     return this;
   }
 
   protected applyFill(): void {
     if (this.underlying && this.fillColor) {
-      // Update fill color on underlying widget
       if (this.underlying.updateFillColor) {
         this.underlying.updateFillColor(this.fillColor);
       }
@@ -67,7 +71,6 @@ export class CosyneCircle extends Primitive<any> {
 
   protected applyStroke(): void {
     if (this.underlying && this.strokeColor !== undefined) {
-      // Update stroke on underlying widget
       if (this.underlying.updateStrokeColor) {
         this.underlying.updateStrokeColor(this.strokeColor);
       }
@@ -85,7 +88,6 @@ export class CosyneCircle extends Primitive<any> {
 
   updateVisibility(visible: boolean): void {
     // Visibility updates would be handled by the canvas stack
-    // For now, this is a no-op but the infrastructure is in place
   }
 
   updateFill(color: string): void {
@@ -111,8 +113,10 @@ export class CosyneCircle extends Primitive<any> {
       this.underlying.update({
         x: this.x,
         y: this.y,
-        x2: this.x + this.radius * 2,
-        y2: this.y + this.radius * 2,
+        text: this.text,
+        fontSize: this.fontSize,
+        fontFamily: this.fontFamily,
+        fontWeight: this.fontWeight,
       });
     }
   }

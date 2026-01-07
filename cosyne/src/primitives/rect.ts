@@ -83,6 +83,21 @@ export class CosyneRect extends Primitive<any> {
     // For now, this is a no-op but the infrastructure is in place
   }
 
+  updateFill(color: string): void {
+    this.fillColor = color;
+    this.applyFill();
+  }
+
+  updateStroke(color: string): void {
+    this.strokeColor = color;
+    this.applyStroke();
+  }
+
+  updateAlpha(alpha: number): void {
+    this.alpha = alpha;
+    // Canvas alpha updates would be implemented here
+  }
+
   /**
    * Update the underlying Tsyne widget with current properties
    */

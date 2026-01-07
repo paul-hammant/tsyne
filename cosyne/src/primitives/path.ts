@@ -1,27 +1,39 @@
 /**
- * Circle primitive for Cosyne
+ * Path primitive for Cosyne
  */
 
 import { Primitive, PrimitiveOptions } from './base';
 import { PositionBinding } from '../binding';
 
-export interface CircleOptions extends PrimitiveOptions {
-  radius?: number;
-}
+export interface PathOptions extends PrimitiveOptions {}
 
 /**
- * Circle primitive - wraps Tsyne canvasCircle
+ * Path primitive - renders SVG path from path string
  */
-export class CosyneCircle extends Primitive<any> {
-  private x: number;
-  private y: number;
-  private radius: number;
+export class CosynePath extends Primitive<any> {
+  private pathString: string;
+  private x: number = 0;
+  private y: number = 0;
 
-  constructor(x: number, y: number, radius: number, underlying: any, options?: CircleOptions) {
+  constructor(pathString: string, underlying: any, options?: PathOptions) {
     super(underlying, options);
-    this.x = x;
-    this.y = y;
-    this.radius = radius || 10;
+    this.pathString = pathString;
+  }
+
+  /**
+   * Get current path string
+   */
+  getPathString(): string {
+    return this.pathString;
+  }
+
+  /**
+   * Set path string
+   */
+  setPathString(pathString: string): this {
+    this.pathString = pathString;
+    this.updateUnderlying();
+    return this;
   }
 
   /**
@@ -31,34 +43,8 @@ export class CosyneCircle extends Primitive<any> {
     return { x: this.x, y: this.y };
   }
 
-  /**
-   * Get current radius
-   */
-  getRadius(): number {
-    return this.radius;
-  }
-
-  /**
-   * Set radius
-   */
-  setRadius(radius: number): this {
-    this.radius = radius;
-    this.updateUnderlying();
-    return this;
-  }
-
-  /**
-   * Bind radius to a function
-   */
-  bindRadius(fn: () => number): this {
-    // Store the radius binding and apply it during refresh
-    (this as any)._radiusBinding = fn;
-    return this;
-  }
-
   protected applyFill(): void {
     if (this.underlying && this.fillColor) {
-      // Update fill color on underlying widget
       if (this.underlying.updateFillColor) {
         this.underlying.updateFillColor(this.fillColor);
       }
@@ -67,7 +53,6 @@ export class CosyneCircle extends Primitive<any> {
 
   protected applyStroke(): void {
     if (this.underlying && this.strokeColor !== undefined) {
-      // Update stroke on underlying widget
       if (this.underlying.updateStrokeColor) {
         this.underlying.updateStrokeColor(this.strokeColor);
       }
@@ -85,7 +70,6 @@ export class CosyneCircle extends Primitive<any> {
 
   updateVisibility(visible: boolean): void {
     // Visibility updates would be handled by the canvas stack
-    // For now, this is a no-op but the infrastructure is in place
   }
 
   updateFill(color: string): void {
@@ -109,10 +93,9 @@ export class CosyneCircle extends Primitive<any> {
   private updateUnderlying(): void {
     if (this.underlying && this.underlying.update) {
       this.underlying.update({
+        d: this.pathString,
         x: this.x,
         y: this.y,
-        x2: this.x + this.radius * 2,
-        y2: this.y + this.radius * 2,
       });
     }
   }
