@@ -291,10 +291,41 @@ export class CosyneContext {
  * });
  * ```
  */
+
+// Global registry of Cosyne contexts
+let contextRegistry: CosyneContext[] = [];
+
 export function cosyne(app: any, builder: (context: CosyneContext) => void): CosyneContext {
   const context = new CosyneContext(app);
+  registerCosyneContext(context);
   builder(context);
   return context;
+}
+
+/**
+ * Register a Cosyne context in the global registry
+ * Allows external code to refresh bindings
+ */
+export function registerCosyneContext(context: CosyneContext): void {
+  contextRegistry.push(context);
+}
+
+/**
+ * Refresh all registered Cosyne contexts
+ * Call this after updating state to propagate changes through bindings
+ */
+export function refreshAllCosyneContexts(): void {
+  for (const context of contextRegistry) {
+    context.refreshBindings();
+  }
+}
+
+/**
+ * Clear all registered Cosyne contexts
+ * Useful for cleanup or testing
+ */
+export function clearAllCosyneContexts(): void {
+  contextRegistry = [];
 }
 
 /**
