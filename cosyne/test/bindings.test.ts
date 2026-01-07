@@ -2,7 +2,7 @@
  * Unit tests for Cosyne bindings
  */
 
-import { Binding, BindingRegistry, PositionBinding } from '../src/binding';
+import { Binding, BindingRegistry, PositionBinding, CollectionBinding, CollectionBindingOptions } from '../src/binding';
 import { CosyneContext } from '../src/context';
 import { CosyneCircle } from '../src/primitives/circle';
 import { CosyneLine } from '../src/primitives/line';
@@ -337,5 +337,293 @@ describe('CosyneContext primitive tracking', () => {
 
     expect(ctx.getAllPrimitives().length).toEqual(0);
     expect(ctx.getPrimitiveById('c1')).toBeUndefined();
+  });
+});
+
+describe('CollectionBinding (Phase 3)', () => {
+  it('TC-COLL-001: bindTo renders initial items', () => {
+    interface DataPoint {
+      id: string;
+      x: number;
+      y: number;
+      color: string;
+    }
+
+    const data: DataPoint[] = [
+      { id: '1', x: 100, y: 100, color: '#ff0000' },
+      { id: '2', x: 200, y: 100, color: '#00ff00' },
+      { id: '3', x: 300, y: 100, color: '#0000ff' },
+    ];
+
+    const options: CollectionBindingOptions<DataPoint, string> = {
+      items: () => data,
+      render: (item) => `circle_${item.id}`,
+      trackBy: (item) => item.id,
+    };
+
+    const binding = new CollectionBinding(options);
+    const result = binding.evaluate();
+
+    expect(result.results.length).toEqual(3);
+    expect(result.added.length).toEqual(3);
+    expect(result.removed.length).toEqual(0);
+  });
+
+  it('TC-COLL-002: bindTo adds new items on update', () => {
+    interface Item {
+      id: number;
+      value: string;
+    }
+
+    let items: Item[] = [
+      { id: 1, value: 'a' },
+      { id: 2, value: 'b' },
+    ];
+
+    const options: CollectionBindingOptions<Item, string> = {
+      items: () => items,
+      render: (item) => `item_${item.id}`,
+      trackBy: (item) => item.id,
+    };
+
+    const binding = new CollectionBinding(options);
+    let result = binding.evaluate();
+
+    expect(result.results.length).toEqual(2);
+    expect(result.added.length).toEqual(2);
+
+    // Add new item
+    items = [
+      { id: 1, value: 'a' },
+      { id: 2, value: 'b' },
+      { id: 3, value: 'c' },
+    ];
+
+    result = binding.evaluate();
+    expect(result.results.length).toEqual(3);
+    expect(result.added.length).toEqual(1); // One new item added
+    expect(result.removed.length).toEqual(0);
+  });
+
+  it('TC-COLL-003: bindTo removes deleted items on update', () => {
+    interface Item {
+      id: number;
+      value: string;
+    }
+
+    let items: Item[] = [
+      { id: 1, value: 'a' },
+      { id: 2, value: 'b' },
+      { id: 3, value: 'c' },
+    ];
+
+    const options: CollectionBindingOptions<Item, string> = {
+      items: () => items,
+      render: (item) => `item_${item.id}`,
+      trackBy: (item) => item.id,
+    };
+
+    const binding = new CollectionBinding(options);
+    let result = binding.evaluate();
+    expect(result.results.length).toEqual(3);
+
+    // Remove item
+    items = [
+      { id: 1, value: 'a' },
+      { id: 3, value: 'c' },
+    ];
+
+    result = binding.evaluate();
+    expect(result.results.length).toEqual(2);
+    expect(result.removed.length).toEqual(1); // One item removed
+    expect(result.added.length).toEqual(0);
+  });
+
+  it('TC-COLL-005: trackBy uses correct identity function', () => {
+    interface Item {
+      id: string;
+      name: string;
+    }
+
+    const items: Item[] = [
+      { id: 'alice', name: 'Alice' },
+      { id: 'bob', name: 'Bob' },
+    ];
+
+    let renderCalls = 0;
+
+    const options: CollectionBindingOptions<Item, string> = {
+      items: () => items,
+      render: (item) => {
+        renderCalls++;
+        return `${item.id}:${item.name}`;
+      },
+      trackBy: (item) => item.id,
+    };
+
+    const binding = new CollectionBinding(options);
+    let result = binding.evaluate();
+    expect(renderCalls).toEqual(2);
+    expect(result.added.length).toEqual(2);
+
+    // Same items, no re-render
+    renderCalls = 0;
+    result = binding.evaluate();
+    expect(renderCalls).toEqual(0); // Should not re-render
+    expect(result.added.length).toEqual(0);
+  });
+
+  it('TC-COLL-007: Empty collection renders nothing', () => {
+    const options: CollectionBindingOptions<any, string> = {
+      items: () => [],
+      render: () => 'item',
+      trackBy: () => 'id',
+    };
+
+    const binding = new CollectionBinding(options);
+    const result = binding.evaluate();
+
+    expect(result.results.length).toEqual(0);
+    expect(result.added.length).toEqual(0);
+    expect(result.removed.length).toEqual(0);
+  });
+
+  it('TC-COLL-010: Large collection (1000+ items) performs acceptably', () => {
+    interface Item {
+      id: number;
+      value: number;
+    }
+
+    const createLargeArray = (count: number): Item[] => {
+      const arr: Item[] = [];
+      for (let i = 0; i < count; i++) {
+        arr.push({ id: i, value: i * 2 });
+      }
+      return arr;
+    };
+
+    let items = createLargeArray(1000);
+
+    const options: CollectionBindingOptions<Item, string> = {
+      items: () => items,
+      render: (item) => `item_${item.id}`,
+      trackBy: (item) => item.id,
+    };
+
+    const binding = new CollectionBinding(options);
+    const startTime = Date.now();
+    const result = binding.evaluate();
+    const elapsed = Date.now() - startTime;
+
+    expect(result.results.length).toEqual(1000);
+    expect(elapsed).toBeLessThan(100); // Should complete quickly
+  });
+
+  it('should support collection on CosyneContext', () => {
+    const app = new MockApp();
+    const ctx = new CosyneContext(app);
+
+    const collection = ctx.circles();
+    expect(collection).toBeDefined();
+  });
+
+  it('should have rects and lines collection builders', () => {
+    const app = new MockApp();
+    const ctx = new CosyneContext(app);
+
+    expect(ctx.rects()).toBeDefined();
+    expect(ctx.lines()).toBeDefined();
+  });
+
+  it('CollectionBinding should track updates with trackBy', () => {
+    interface Item {
+      id: number;
+      x: number;
+    }
+
+    let items: Item[] = [{ id: 1, x: 100 }];
+    let updateCount = 0;
+
+    const options: CollectionBindingOptions<Item, number> = {
+      items: () => items,
+      render: (item) => item.x,
+      trackBy: (item) => item.id,
+    };
+
+    const binding = new CollectionBinding(options);
+    let result = binding.evaluate();
+    expect(result.results).toEqual([100]);
+
+    // Change value of existing item
+    items = [{ id: 1, x: 200 }];
+    result = binding.evaluate();
+
+    // Should detect update
+    expect(result.updated.length).toEqual(1);
+  });
+
+  it('should handle collection bind/unbind cycles', () => {
+    interface Item {
+      id: number;
+    }
+
+    let items: Item[] = [{ id: 1 }, { id: 2 }];
+
+    const options: CollectionBindingOptions<Item, string> = {
+      items: () => items,
+      render: (item) => `item_${item.id}`,
+      trackBy: (item) => item.id,
+    };
+
+    const binding1 = new CollectionBinding(options);
+    let result = binding1.evaluate();
+    expect(result.results.length).toEqual(2);
+
+    // Add item
+    items = [{ id: 1 }, { id: 2 }, { id: 3 }];
+    result = binding1.evaluate();
+    expect(result.results.length).toEqual(3);
+    expect(result.added.length).toEqual(1);
+
+    // Remove item
+    items = [{ id: 1 }, { id: 3 }];
+    result = binding1.evaluate();
+    expect(result.results.length).toEqual(2);
+    expect(result.removed.length).toEqual(1);
+  });
+
+  it('should handle order changes in collections', () => {
+    interface Item {
+      id: number;
+      order: number;
+    }
+
+    let items: Item[] = [
+      { id: 1, order: 1 },
+      { id: 2, order: 2 },
+      { id: 3, order: 3 },
+    ];
+
+    const options: CollectionBindingOptions<Item, number> = {
+      items: () => items,
+      render: (item) => item.id,
+      trackBy: (item) => item.id,
+    };
+
+    const binding = new CollectionBinding(options);
+    let result = binding.evaluate();
+    expect(result.results).toEqual([1, 2, 3]);
+
+    // Reverse order
+    items = [
+      { id: 3, order: 3 },
+      { id: 2, order: 2 },
+      { id: 1, order: 1 },
+    ];
+
+    result = binding.evaluate();
+    expect(result.results).toEqual([3, 2, 1]);
+    // All items should be marked as updated due to position change
+    expect(result.updated.length).toBeGreaterThan(0);
   });
 });

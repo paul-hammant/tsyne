@@ -14,6 +14,7 @@ import { CosynePath, PathOptions } from './primitives/path';
 import { CosyneArc, ArcOptions } from './primitives/arc';
 import { CosyneWedge, WedgeOptions } from './primitives/wedge';
 import { Primitive } from './primitives/base';
+import { CirclesCollection, RectsCollection, LinesCollection } from './collections';
 
 /**
  * Main Cosyne builder context
@@ -242,6 +243,27 @@ export class CosyneContext {
     const primitive = new CosyneWedge(x, y, radius, underlying, options);
     this.trackPrimitive(primitive);
     return primitive;
+  }
+
+  /**
+   * Create a collection builder for circles
+   */
+  circles(): CirclesCollection {
+    return new CirclesCollection(this);
+  }
+
+  /**
+   * Create a collection builder for rectangles
+   */
+  rects(): RectsCollection {
+    return new RectsCollection(this);
+  }
+
+  /**
+   * Create a collection builder for lines
+   */
+  lines(): LinesCollection {
+    return new LinesCollection(this);
   }
 
   /**
