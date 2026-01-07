@@ -98,12 +98,32 @@ enableEventHandling(cosyneCtx, a, { width: 500, height: 500 });
 - Shapes: circle (distance), rect (bbox), line (distance-to-segment), polygon (ray casting), arc/wedge (radial+angle)
 - Router: `EventRouter` class routes canvas events to primitives via hit detection
 
+**Animations** (Phase 9):
+- `.animate('property', { from, to, duration, easing, loop, yoyo })` - Direct animation with control
+- `.animateFluent('property', from, to).duration(ms).easing(fn).loop(true).start()` - Fluent builder API
+- 30+ easing functions: `linear`, `easeIn/Out/InOutQuad`, `easeInOutCubic`, `easeInOutSine`, `easeInOutExpo`, `easeInOutCirc`, `easeInElastic`, `easeInBack`, `easeOutBounce`, etc.
+- Color interpolation: `interpolateColor('#FF0000', '#0000FF', 0.5, easing)`
+- AnimationManager: Global singleton for coordinating animations via `requestAnimationFrame`
+- Fluent animation example:
+  ```typescript
+  c.circle(100, 100, 20)
+    .animateFluent('alpha', 0, 1)
+    .duration(1000)
+    .easing('easeInOutCubic')
+    .loop(true)
+    .yoyo(true)
+    .start();
+  ```
+
 **Architecture:**
 - `cosyne/src/primitives/` - 12 shape types, all extend `Primitive<T>`
 - `cosyne/src/binding.ts` - Lazy-evaluated binding system with diffing
 - `cosyne/src/events.ts` - Hit testers & event routing
+- `cosyne/src/easing.ts` - 30+ parameterized easing functions, interpolation helpers
+- `cosyne/src/animation.ts` - Generic `Animation<T>` class with keyframe support
+- `cosyne/src/animation-manager.ts` - Global animation coordinator with requestAnimationFrame
 - `cosyne/src/context.ts` - Builder context, global registry
-- `cosyne/test/` - 200+ Jest tests covering all features
+- `cosyne/test/` - 200+ Jest tests covering all features (phase 9: 75+ animation tests)
 
 **Key design:**
 - ✅ Fluent API (all methods return `this`)

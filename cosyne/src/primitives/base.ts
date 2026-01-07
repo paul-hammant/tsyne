@@ -5,6 +5,9 @@
 import { Binding, BindingFunction, PositionBinding } from '../binding';
 import { RotationAngles } from '../projections';
 import { HitTester } from '../events';
+import { Animation, AnimationOptions, AnimationControl } from '../animation';
+import { getAnimationManager } from '../animation-manager';
+import { EasingFunction } from '../easing';
 
 export interface PrimitiveOptions {
   id?: string;
@@ -50,6 +53,9 @@ export abstract class Primitive<TUnderlyingWidget> {
   protected onDragStartHandler: ((e: { x: number; y: number }) => void) | undefined;
   protected onDragHandler: ((e: { x: number; y: number; deltaX: number; deltaY: number }) => void) | undefined;
   protected onDragEndHandler: (() => void) | undefined;
+
+  // Animation tracking (for cleanup)
+  protected activeAnimations: Set<AnimationControl> = new Set();
 
   constructor(
     protected underlying: TUnderlyingWidget,
@@ -318,6 +324,127 @@ export abstract class Primitive<TUnderlyingWidget> {
       this.onDragHandler ||
       this.onDragEndHandler
     );
+  }
+
+  /**
+   * Animate a numeric property (e.g., alpha, rotation, position, radius)
+   * Returns control object for pause/resume/seek
+   *
+   * @example
+   * ```typescript
+   * c.circle(100, 100, 20)
+   *   .animate('alpha', { from: 0, to: 1 })
+   *   .duration(1000)
+   *   .easing(easeInOutCubic);
+   * ```
+   */
+  animate<T = number>(
+    property: string,
+    options: Omit<AnimationOptions<T>, 'from' | 'to'> & { from: T; to: T }
+  ): AnimationControl {
+    // Create animation
+    const animation = new Animation<T>(options);
+
+    // Register with global animation manager (will trigger refresh on update)
+    const manager = getAnimationManager();
+    const control = manager.add(animation, this as any, property);
+
+    // Track animation for cleanup
+    this.activeAnimations.add(control);
+
+    // Remove from tracking when complete
+    const originalOnComplete = options.onComplete;
+    animation = new Animation<T>({
+      ...options,
+      onComplete: () => {
+        originalOnComplete?.();
+        this.activeAnimations.delete(control);
+      },
+    });
+
+    // Re-register the updated animation
+    manager.remove(control);
+    const newControl = manager.add(animation, this as any, property);
+    this.activeAnimations.delete(control);
+    this.activeAnimations.add(newControl);
+
+    return newControl;
+  }
+
+  /**
+   * Build fluent animation with duration
+   * Returns object allowing further configuration
+   *
+   * @example
+   * ```typescript
+   * c.circle(100, 100, 20)
+   *   .animateFluent('alpha', 0, 1)
+   *   .duration(1000)
+   *   .easing('easeInOutCubic')
+   *   .loop(true);
+   * ```
+   */
+  animateFluent<T = number>(
+    property: string,
+    from: T,
+    to: T
+  ): {
+    duration(ms: number): this;
+    easing(fn: EasingFunction | string): this;
+    delay(ms: number): this;
+    loop(enabled: boolean): this;
+    yoyo(enabled: boolean): this;
+    start(): AnimationControl;
+  } {
+    const config: Partial<AnimationOptions<T>> = { from, to };
+
+    const fluent = {
+      duration: (ms: number) => {
+        config.duration = ms;
+        return fluent;
+      },
+      easing: (fn: EasingFunction | string) => {
+        if (typeof fn === 'string') {
+          const { getEasingFunction } = require('../easing');
+          config.easing = getEasingFunction(fn);
+        } else {
+          config.easing = fn;
+        }
+        return fluent;
+      },
+      delay: (ms: number) => {
+        config.delay = ms;
+        return fluent;
+      },
+      loop: (enabled: boolean) => {
+        config.loop = enabled;
+        return fluent;
+      },
+      yoyo: (enabled: boolean) => {
+        config.yoyo = enabled;
+        return fluent;
+      },
+      start: (): AnimationControl => {
+        if (!config.duration) {
+          config.duration = 1000; // Default duration
+        }
+        return this.animate<T>(property, config as AnimationOptions<T>);
+      },
+    };
+
+    return fluent;
+  }
+
+  /**
+   * Clear all active animations on this primitive
+   */
+  clearAnimations(): void {
+    const manager = getAnimationManager();
+    for (const control of this.activeAnimations) {
+      manager.remove(control);
+      control.stop();
+    }
+    this.activeAnimations.clear();
   }
 
   /**

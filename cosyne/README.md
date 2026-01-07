@@ -182,9 +182,68 @@ c.circle(100, 100, 20)
 enableEventHandling(ctx, a, { width: 500, height: 500 });
 ```
 
+### Phase 9: Animation Framework
+**Keyframe-based animations** with 30+ easing functions, timing control, and callbacks
+
+```typescript
+import { easeInOutCubic, easeOutBounce } from 'cosyne';
+
+// Direct animation with control object
+const control = c.circle(100, 100, 20)
+  .animate('alpha', {
+    from: 0,
+    to: 1,
+    duration: 1000,
+    easing: easeInOutCubic,
+    onComplete: () => console.log('Animation done')
+  });
+
+// Control API: pause, resume, seek, stop
+control.pause();
+control.resume();
+control.seek(500);  // Jump to 50%
+control.stop();     // Reset to start
+
+// Fluent builder pattern (recommended)
+c.circle(200, 200, 30)
+  .animateFluent('scale', 1, 1.5)
+  .duration(800)
+  .easing('easeOutBounce')
+  .delay(200)
+  .loop(true)
+  .yoyo(true)
+  .start();
+
+// Color animations
+c.rect(50, 50, 100, 100)
+  .animate('fillColor', {
+    from: '#FF0000',
+    to: '#0000FF',
+    duration: 2000,
+    easing: easeInOutCubic,
+    loop: true,
+    yoyo: true
+  });
+
+// Available easing functions (30+)
+// linear, easeInQuad, easeOutQuad, easeInOutQuad
+// easeInCubic, easeOutCubic, easeInOutCubic
+// easeInSine, easeOutSine, easeInOutSine
+// easeInExpo, easeOutExpo, easeInOutExpo
+// easeInCirc, easeOutCirc, easeInOutCirc
+// easeInElastic, easeOutElastic, easeInOutElastic
+// easeInBack, easeOutBack, easeInOutBack
+// easeInBounce, easeOutBounce, easeInOutBounce
+```
+
+**3 Demo Applications:**
+1. **Animated Spinner** - Rotating circles with elastic easing and wave effects
+2. **Animated Dashboard** - Real-time metric visualization with smooth transitions
+3. **Bouncing Ball** - Physics simulation with gravity, drag, and collision bouncing
+
 ---
 
-## Real-World Example: Interactive Dashboard
+## Real-World Example: Interactive Dashboard with Animations
 
 ```typescript
 import { cosyne, enableEventHandling, refreshAllCosyneContexts } from 'cosyne';
