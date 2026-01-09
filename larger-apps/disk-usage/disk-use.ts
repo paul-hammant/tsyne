@@ -159,6 +159,9 @@ export async function buildDiskUseApp(a: App): Promise<void> {
     }
   }
 
+  let computingTreemap = false;
+  let lastComputedNodePath = '';
+
   function drawTreemap(): void {
     const selectedNodeForMap = selectedNode || store.getRoot();
     if (!selectedNodeForMap) {
@@ -167,17 +170,9 @@ export async function buildDiskUseApp(a: App): Promise<void> {
 
     const canvasWidth = 400;
     const canvasHeight = 400;
-    const maxSize = selectedNodeForMap.size;
+    const currentNodePath = selectedNodeForMap.path;
 
-    treemapRects = computeTreemap(
-      selectedNodeForMap,
-      0,
-      0,
-      canvasWidth,
-      canvasHeight,
-      maxSize
-    );
-
+    // Render canvas immediately (even if treemapRects is empty/stale)
     a.center(() => {
       a.tappableCanvasRaster(canvasWidth, canvasHeight, {
         onTap: (x: number, y: number) => {
@@ -191,8 +186,32 @@ export async function buildDiskUseApp(a: App): Promise<void> {
             }
           }
         },
-      });
+      }).withId('diskuse-treemap');
     });
+
+    // Defer expensive treemap computation to next event loop iteration
+    // This allows the UI to render immediately while computation happens in background
+    if (currentNodePath !== lastComputedNodePath && !computingTreemap) {
+      computingTreemap = true;
+      lastComputedNodePath = currentNodePath;
+
+      setImmediate(() => {
+        const maxSize = selectedNodeForMap.size;
+
+        treemapRects = computeTreemap(
+          selectedNodeForMap,
+          0,
+          0,
+          canvasWidth,
+          canvasHeight,
+          maxSize
+        );
+
+        computingTreemap = false;
+        // Refresh just the right panel to show the computed treemap
+        refresh();
+      });
+    }
   }
 
   function refresh(): void {
