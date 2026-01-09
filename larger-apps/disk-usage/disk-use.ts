@@ -138,7 +138,8 @@ export async function buildDiskUseApp(a: App): Promise<void> {
         : '  ▶ ';
 
     const displayName = `${prefix}${node.name}`;
-    const sizeStr = node.isDirectory ? ` (${store.getFormattedSize(node.size)})` : '';
+    // Lazy-load size for directories, immediate for files
+    const sizeStr = node.isDirectory ? ` (${store.getNodeFormattedSize(node)})` : '';
 
     a
       .button(`${displayName}${sizeStr}`)
@@ -219,7 +220,7 @@ export async function buildDiskUseApp(a: App): Promise<void> {
                 if (selectedNode) {
                   a.label(`Path: ${selectedNode.path}`).withId('diskuse-path');
                   a.label(
-                    `Size: ${store.getFormattedSize(selectedNode.size)}`
+                    `Size: ${store.getNodeFormattedSize(selectedNode)}`
                   ).withId('diskuse-size');
 
                   if (selectedNode.isDirectory && selectedNode.loadedChildren) {

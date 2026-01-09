@@ -58,7 +58,11 @@ describe('DiskUsageStore', () => {
 
       expect(root).not.toBeNull();
       expect(root?.isDirectory).toBe(true);
-      expect(root?.size).toBeGreaterThan(0);
+      // Root size is lazy-loaded; it should be 0 until accessed
+      expect(root?.size).toBe(0);
+      // But children should be loaded
+      expect(root?.loadedChildren).toBe(true);
+      expect(root?.children.length).toBeGreaterThan(0);
       expect(store.getSelectedNode()).toBe(root);
     });
 

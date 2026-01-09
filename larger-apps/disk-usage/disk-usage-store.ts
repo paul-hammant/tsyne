@@ -32,7 +32,15 @@ export function createDiskNode(
   };
 }
 
+// Memoization cache for directory sizes
+const sizeCache = new Map<string, number>();
+
 function getDirectorySize(dirPath: string): number {
+  // Check cache first
+  if (sizeCache.has(dirPath)) {
+    return sizeCache.get(dirPath)!;
+  }
+
   try {
     const stats = fs.statSync(dirPath);
     if (!stats.isDirectory()) {
@@ -59,6 +67,7 @@ function getDirectorySize(dirPath: string): number {
       // Skip inaccessible directories
     }
 
+    sizeCache.set(dirPath, totalSize);
     return totalSize;
   } catch (err) {
     return 0;
@@ -97,7 +106,22 @@ function loadChildrenForNode(node: DiskNode): void {
 
     node.children = children.map((child) => {
       const childNode = createDiskNode(child.name, child.path, child.isDirectory, node);
-      childNode.size = child.isDirectory ? getDirectorySize(child.path) : 0;
+      // For files: get immediate size. For directories: lazy load on first access
+      if (!child.isDirectory) {
+        try {
+          const stats = fs.statSync(child.path);
+          childNode.size = stats.size;
+        } catch (err) {
+          childNode.size = 0;
+        }
+      } else {
+        // Directories: calculate size lazily on first access
+        Object.defineProperty(childNode, '_sizeCalculated', {
+          value: false,
+          writable: true,
+          configurable: true,
+        });
+      }
       return childNode;
     });
 
@@ -105,6 +129,17 @@ function loadChildrenForNode(node: DiskNode): void {
   } catch (err) {
     // Handle permission errors
     node.loadedChildren = true;
+  }
+}
+
+// Lazy getter for directory sizes
+function ensureDirectorySizeCalculated(node: DiskNode): void {
+  if (!node.isDirectory) return;
+
+  const anyNode = node as any;
+  if (!anyNode._sizeCalculated) {
+    node.size = getDirectorySize(node.path);
+    anyNode._sizeCalculated = true;
   }
 }
 
@@ -133,7 +168,10 @@ export class DiskUsageStore {
 
       const name = path.basename(dirPath) || dirPath;
       this.root = createDiskNode(name, dirPath, true);
-      this.root.size = getDirectorySize(dirPath);
+      // Don't calculate root size upfront - it's expensive! Calculate it lazily on first access
+      (this.root as any)._sizeCalculated = false;
+
+      // Only load immediate children (not recursive), so UI appears quickly
       loadChildrenForNode(this.root);
 
       this.selectedNode = this.root;
@@ -200,6 +238,11 @@ export class DiskUsageStore {
     return `${size.toFixed(2)} ${units[unitIndex]}`;
   }
 
+  getNodeFormattedSize(node: DiskNode): string {
+    ensureDirectorySizeCalculated(node);
+    return this.getFormattedSize(node.size);
+  }
+
   getNodePath(node: DiskNode): DiskNode[] {
     const pathList: DiskNode[] = [];
     let current: DiskNode | null = node;
@@ -214,6 +257,10 @@ export class DiskUsageStore {
 
   getSortedChildren(node: DiskNode): DiskNode[] {
     const children = [...node.children];
+    // Ensure directory sizes are calculated before sorting
+    for (const child of children) {
+      ensureDirectorySizeCalculated(child);
+    }
     children.sort((a, b) => b.size - a.size);
     return children;
   }
