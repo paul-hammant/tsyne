@@ -272,5 +272,5 @@ export async function buildDiskUseApp(a: App): Promise<void> {
 
 if (require.main === module) {
   const { app, resolveTransport } = require('../../core/src');
-  app(resolveTransport(), { title: 'Disk Use' }, buildDiskUseApp).catch(console.error);
+  app(resolveTransport(), { title: 'Disk Use' }, buildDiskUseApp);
 }
