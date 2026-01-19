@@ -75,63 +75,97 @@ export function buildRobotArmApp(a: any) {
         }
       }
 
-      // === ROBOT ARM HIERARCHY ===
+      // ============================================================
+      // ROBOT ARM HIERARCHY (Forward Kinematics Chain)
+      // ============================================================
+      //
+      // Joint Diagram:
+      //
+      //                    [Finger L]  [Finger R]
+      //                         \      /
+      //                          \    /
+      //                       [Wrist Bar]
+      //                            |
+      //                       [Forearm]
+      //                            |
+      //                    (ELBOW JOINT) ← rotates around X-axis
+      //                            |
+      //                       [Upper Arm]
+      //                            |
+      //                   (SHOULDER JOINT) ← rotates around X-axis
+      //                            |
+      //                        [Turret]
+      //                            |
+      //                     (BASE JOINT) ← rotates around Y-axis
+      //                            |
+      //                     [Base Platform]
+      //                    ═══════════════
+      //                       (Ground)
+      //
+      // ============================================================
 
-      // 1. Base Platform (static)
+      // ──────────────────────────────────────────────────────────────
+      // SEGMENT 1: Base Platform (static, bolted to ground)
+      // ──────────────────────────────────────────────────────────────
       ctx.cylinder({
         radius: 3,
         height: 1,
         position: [0, 0.5, 0],
       }).setMaterial({ color: '#2a2a2a' });
 
-      // 2. Turret (rotates around Y axis)
+      // ──────────────────────────────────────────────────────────────
+      // JOINT 1: Base Joint (Y-axis rotation) - connects Base → Turret
+      // ──────────────────────────────────────────────────────────────
       ctx.transform({ translate: [0, 1, 0] }, (turret) => {
-        // The turret itself - we can't use bindRotation on transform,
-        // so we apply rotation to the box directly
+
+        // SEGMENT 2: Turret (rotates with base joint)
         ctx.box({
           size: [4, 2, 4],
           position: [0, 1, 0],
         }).setMaterial({ color: '#3a3a4a' })
           .bindRotation(() => [0, robotState.baseRotation, 0]);
 
-        // 3. Shoulder Joint Assembly (rotates around X axis)
-        // Create a pivot point at top of turret
+        // ────────────────────────────────────────────────────────────
+        // JOINT 2: Shoulder Joint (X-axis rotation) - connects Turret → Upper Arm
+        // ────────────────────────────────────────────────────────────
         ctx.transform({ translate: [0, 2, 0] }, () => {
-          // Shoulder joint visual (cylinder as pivot)
+
+          // Shoulder joint visual (horizontal cylinder as pivot axle)
           ctx.cylinder({
             radius: 0.8,
             height: 2.5,
-            rotation: [0, 0, Math.PI / 2],  // Rotate to be horizontal
+            rotation: [0, 0, Math.PI / 2],
           }).setMaterial({ color: '#5a5a6a' })
             .bindRotation(() => [0, robotState.baseRotation, Math.PI / 2]);
 
-          // Upper Arm segment (box that rotates with shoulder)
-          // The arm extends from the pivot, so we position it offset from origin
+          // SEGMENT 3: Upper Arm (rotates with shoulder joint)
           ctx.box({
             size: [1.5, 7, 1.5],
           }).setMaterial({ color: '#6a8a9a' })
             .bindPosition(() => {
-              // Calculate arm center position based on shoulder angle
-              // Arm is 7 units long, pivot at bottom, so center is at 3.5 units along arm
+              // Arm center is at half-length from shoulder pivot
               const armLength = 7;
               const centerOffset = armLength / 2;
-              const totalAngle = robotState.shoulderAngle;
-              // Y is up initially, rotate by shoulder angle around X
-              // After X rotation: y' = y*cos(angle), z' = -y*sin(angle)
-              const cy = centerOffset * Math.cos(totalAngle);
-              const cz = -centerOffset * Math.sin(totalAngle);
+              const angle = robotState.shoulderAngle;
+              // Forward kinematics: rotate around X-axis
+              const cy = centerOffset * Math.cos(angle);
+              const cz = -centerOffset * Math.sin(angle);
               return [0, cy, cz];
             })
             .bindRotation(() => [robotState.shoulderAngle, robotState.baseRotation, 0]);
 
-          // 4. Elbow Joint (at end of upper arm, rotates around X)
-          // Elbow pivot position depends on shoulder angle
+          // ──────────────────────────────────────────────────────────
+          // JOINT 3: Elbow Joint (X-axis rotation) - connects Upper Arm → Forearm
+          // ──────────────────────────────────────────────────────────
+
+          // Elbow joint visual (horizontal cylinder as pivot axle)
           ctx.cylinder({
             radius: 0.6,
             height: 2,
             rotation: [0, 0, Math.PI / 2],
           }).setMaterial({ color: '#5a5a6a' })
             .bindPosition(() => {
+              // Elbow is at end of upper arm
               const armLength = 7;
               const y = armLength * Math.cos(robotState.shoulderAngle);
               const z = -armLength * Math.sin(robotState.shoulderAngle);
@@ -139,7 +173,7 @@ export function buildRobotArmApp(a: any) {
             })
             .bindRotation(() => [0, robotState.baseRotation, Math.PI / 2]);
 
-          // Forearm segment
+          // SEGMENT 4: Forearm (rotates with elbow joint, inherits shoulder rotation)
           ctx.box({
             size: [1.2, 5, 1.2],
           }).setMaterial({ color: '#7a9aaa' })
@@ -148,11 +182,11 @@ export function buildRobotArmApp(a: any) {
               const forearmLength = 5;
               const forearmCenterOffset = forearmLength / 2;
 
-              // Start at elbow position
+              // Start at elbow position (end of upper arm)
               const elbowY = upperArmLength * Math.cos(robotState.shoulderAngle);
               const elbowZ = -upperArmLength * Math.sin(robotState.shoulderAngle);
 
-              // Combined angle for forearm
+              // Combined angle = shoulder + elbow (forward kinematics chain)
               const combinedAngle = robotState.shoulderAngle + robotState.elbowAngle;
 
               // Forearm center offset from elbow
@@ -167,8 +201,11 @@ export function buildRobotArmApp(a: any) {
               0
             ]);
 
-          // 5. Wrist/Claw Assembly (at end of forearm)
-          // Wrist bar
+          // ──────────────────────────────────────────────────────────
+          // SEGMENT 5: Wrist/Gripper Assembly (at end of forearm)
+          // ──────────────────────────────────────────────────────────
+
+          // Wrist bar (connects forearm to fingers)
           ctx.box({
             size: [3, 0.8, 0.8],
           }).setMaterial({ color: '#4a4a5a' })
@@ -191,7 +228,11 @@ export function buildRobotArmApp(a: any) {
               0
             ]);
 
-          // Left Finger
+          // ──────────────────────────────────────────────────────────
+          // JOINT 4: Gripper Joint (linear actuator) - opens/closes fingers
+          // ──────────────────────────────────────────────────────────
+
+          // Left Finger (moves laterally based on clawOpen)
           ctx.box({
             size: [0.4, 2.5, 0.4],
           }).setMaterial({ color: '#8a8a9a' })
@@ -206,12 +247,12 @@ export function buildRobotArmApp(a: any) {
               const wristY = elbowY + forearmLength * Math.cos(combinedAngle);
               const wristZ = elbowZ - forearmLength * Math.sin(combinedAngle);
 
-              // Finger offset (local X becomes world depending on base rotation)
+              // Finger lateral offset controlled by clawOpen (0=closed, 1=open)
               const fingerOffset = 1.2 + robotState.clawOpen * 0.8;
               const fingerLength = 2.5;
               const fingerCenterOffset = fingerLength / 2;
 
-              // Finger extends in arm direction
+              // Finger extends in arm direction from wrist
               const fingerY = wristY + fingerCenterOffset * Math.cos(combinedAngle);
               const fingerZ = wristZ - fingerCenterOffset * Math.sin(combinedAngle);
 
@@ -228,7 +269,7 @@ export function buildRobotArmApp(a: any) {
               0
             ]);
 
-          // Right Finger
+          // Right Finger (moves laterally based on clawOpen)
           ctx.box({
             size: [0.4, 2.5, 0.4],
           }).setMaterial({ color: '#8a8a9a' })
@@ -243,6 +284,7 @@ export function buildRobotArmApp(a: any) {
               const wristY = elbowY + forearmLength * Math.cos(combinedAngle);
               const wristZ = elbowZ - forearmLength * Math.sin(combinedAngle);
 
+              // Finger lateral offset (opposite side from left finger)
               const fingerOffset = 1.2 + robotState.clawOpen * 0.8;
               const fingerLength = 2.5;
               const fingerCenterOffset = fingerLength / 2;
@@ -250,7 +292,7 @@ export function buildRobotArmApp(a: any) {
               const fingerY = wristY + fingerCenterOffset * Math.cos(combinedAngle);
               const fingerZ = wristZ - fingerCenterOffset * Math.sin(combinedAngle);
 
-              const localX = fingerOffset;
+              const localX = fingerOffset;  // Positive X = right side
               const worldX = localX * Math.cos(robotState.baseRotation);
               const worldZ = localX * Math.sin(robotState.baseRotation);
 
