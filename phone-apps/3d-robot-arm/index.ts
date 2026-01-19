@@ -15,8 +15,8 @@
  * @tsyne-app:args (a: App) => void
  */
 
-import { app, resolveTransport } from '../core/src/index';
-import { cosyne3d, refreshAllCosyne3dContexts, renderer3d, createRenderTarget, RenderTarget } from '../cosyne/src/index3d';
+import { app, resolveTransport } from '../../core/src/index';
+import { cosyne3d, renderer3d, createRenderTarget, RenderTarget } from '../../cosyne/src/index3d';
 
 // Robot State (Reactive)
 const robotState = {
@@ -116,7 +116,7 @@ export function buildRobotArmApp(a: any) {
       // ──────────────────────────────────────────────────────────────
       // JOINT 1: Base Joint (Y-axis rotation) - connects Base → Turret
       // ──────────────────────────────────────────────────────────────
-      ctx.transform({ translate: [0, 1, 0] }, (turret) => {
+      ctx.transform({ translate: [0, 1, 0] }, () => {
 
         // SEGMENT 2: Turret (rotates with base joint)
         ctx.box({
