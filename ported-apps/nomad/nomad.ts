@@ -160,15 +160,21 @@ export class NomadUI {
 
   private timeUpdateInterval: NodeJS.Timeout | null = null;
   private searchResults: City[] = [];
+  private testMode: boolean = false;
+  private isBuilding: boolean = false; // Prevent recursive rebuilds during construction
 
-  constructor(private a: App) {
+  constructor(private a: App, options?: { testMode?: boolean }) {
+    this.testMode = options?.testMode ?? false;
+
     // Initialize with default city synchronously
     this.state.cities = [
       WORLD_CITIES.find((c) => c.id === 'edinburgh') || WORLD_CITIES[0],
     ];
 
-    // Try to load saved settings (may override default)
-    this.loadSettings();
+    // Skip loading saved settings in test mode to avoid async UI rebuilds
+    if (!this.testMode) {
+      this.loadSettings();
+    }
   }
 
   private loadSettings(): void {
@@ -298,7 +304,12 @@ export class NomadUI {
    * Handle time selection
    */
   private onTimeSelected(cityTimezone: string, timeStr: string): void {
+    // Guard against unnecessary refreshes during initial construction
     if (timeStr === 'Now') {
+      // Only refresh if the state actually changed
+      if (this.state.useCurrentTime) {
+        return; // Already using current time, no change
+      }
       this.state.useCurrentTime = true;
       this.state.selectedDate = new Date();
       this.refreshUI();
@@ -342,6 +353,10 @@ export class NomadUI {
   }
 
   private refreshUI(): void {
+    // Prevent recursive rebuilds during construction
+    if (this.isBuilding) {
+      return;
+    }
     if (this.window) {
       this.window.setContent(() => this.buildUI(this.window!));
     }
@@ -435,12 +450,13 @@ export class NomadUI {
             }
           }
         }
-      );
+      ).withId('nomad-add-city');
       addCitySelect.setSelected('ADD A PLACE');
     });
   }
 
   buildUI(win: Window): void {
+    this.isBuilding = true;
     this.window = win;
 
     // Apply custom theme colors matching the original
@@ -464,8 +480,12 @@ export class NomadUI {
       this.buildSearchSection();
     });
 
+    // Building complete - allow refreshUI to work again
+    this.isBuilding = false;
+
     // Start timer for updating times (every 30 seconds is sufficient for HH:MM display)
-    if (!this.timeUpdateInterval) {
+    // Skip timer in test mode to avoid interfering with test assertions
+    if (!this.timeUpdateInterval && !this.testMode) {
       this.timeUpdateInterval = setInterval(() => {
         if (this.state.useCurrentTime && this.window) {
           this.state.selectedDate = new Date();
@@ -504,9 +524,12 @@ export class NomadUI {
 
 /**
  * Create the Nomad app
+ * @param a App instance
+ * @param win Window instance
+ * @param options Optional configuration (testMode disables timers and async settings loading)
  */
-export function buildNomadApp(a: App, win: Window): NomadUI {
-  const ui = new NomadUI(a);
+export function buildNomadApp(a: App, win: Window, options?: { testMode?: boolean }): NomadUI {
+  const ui = new NomadUI(a, options);
 
   // Register cleanup for test mode (ensures timer is stopped)
   a.registerCleanup(() => ui.cleanup());

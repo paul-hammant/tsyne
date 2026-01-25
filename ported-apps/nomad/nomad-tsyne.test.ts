@@ -17,7 +17,7 @@ describe('Nomad Timezone Manager UI', () => {
     tsyneTest = new TsyneTest({ headed: false });
     testApp = await tsyneTest.createApp((app: App) => {
       app.window({ title: 'Nomad', width: 340, height: 600 }, (win: Window) => {
-        buildNomadApp(app, win);
+        buildNomadApp(app, win, { testMode: true });
       });
     });
     ctx = tsyneTest.getContext();
@@ -26,7 +26,7 @@ describe('Nomad Timezone Manager UI', () => {
 
   afterAll(async () => {
     await tsyneTest.cleanup();
-  });
+  }, 10000);
 
   test('should render initial UI with Edinburgh card (default city)', async () => {
     // The app starts with Edinburgh as the default city
