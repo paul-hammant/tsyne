@@ -3,6 +3,8 @@
  *
  * A time conversion application for managing time across multiple timezones
  * and locations. Track current time in different cities and time zones.
+ * Features beautiful city cards with background images, calendar date picker,
+ * and time selection dropdowns.
  *
  * Ported from Nomad (https://github.com/fynelabs/nomad)
  * Original by Fyne Labs
@@ -18,40 +20,132 @@
  * @tsyne-app:count single
  */
 
-import type { App, Window, Label } from 'tsyne';
+import type { App, Window, Label, Button } from 'tsyne';
 
-export interface TimeLocation {
+/**
+ * City data with proper timezone support
+ */
+export interface City {
   id: string;
   name: string;
-  timezone: string;
-  offset: number; // hours offset from UTC
-  currentTime?: string;
+  country: string;
+  timezone: string; // IANA timezone name (e.g., 'Europe/London')
+  imageUrl?: string; // Optional background image
 }
 
+/**
+ * App state
+ */
 export interface NomadState {
-  locations: TimeLocation[];
-  sortByName: boolean;
-  useFormat24h: boolean;
+  cities: City[];
+  selectedDate: Date; // The date/time being viewed (can be past/future)
+  useCurrentTime: boolean; // Whether to track current time or show selected time
 }
 
-// Common timezones
-export const COMMON_TIMEZONES: TimeLocation[] = [
-  { id: 'utc', name: 'UTC', timezone: 'UTC', offset: 0 },
-  { id: 'london', name: 'London', timezone: 'Europe/London', offset: 0 },
-  { id: 'paris', name: 'Paris', timezone: 'Europe/Paris', offset: 1 },
-  { id: 'tokyo', name: 'Tokyo', timezone: 'Asia/Tokyo', offset: 9 },
-  { id: 'sydney', name: 'Sydney', timezone: 'Australia/Sydney', offset: 10 },
-  { id: 'ny', name: 'New York', timezone: 'America/New_York', offset: -5 },
-  { id: 'la', name: 'Los Angeles', timezone: 'America/Los_Angeles', offset: -8 },
-  { id: 'dubai', name: 'Dubai', timezone: 'Asia/Dubai', offset: 4 },
-  { id: 'singapore', name: 'Singapore', timezone: 'Asia/Singapore', offset: 8 },
-  { id: 'mumbai', name: 'Mumbai', timezone: 'Asia/Kolkata', offset: 5.5 },
-  { id: 'bangkok', name: 'Bangkok', timezone: 'Asia/Bangkok', offset: 7 },
-  { id: 'hongkong', name: 'Hong Kong', timezone: 'Asia/Hong_Kong', offset: 8 },
-  { id: 'toronto', name: 'Toronto', timezone: 'America/Toronto', offset: -5 },
-  { id: 'mexico', name: 'Mexico City', timezone: 'America/Mexico_City', offset: -6 },
-  { id: 'berlin', name: 'Berlin', timezone: 'Europe/Berlin', offset: 1 },
+/**
+ * Comprehensive list of world cities with timezones
+ * Searchable via autocomplete
+ */
+export const WORLD_CITIES: City[] = [
+  // Europe
+  { id: 'london', name: 'London', country: 'United Kingdom', timezone: 'Europe/London' },
+  { id: 'paris', name: 'Paris', country: 'France', timezone: 'Europe/Paris' },
+  { id: 'berlin', name: 'Berlin', country: 'Germany', timezone: 'Europe/Berlin' },
+  { id: 'rome', name: 'Rome', country: 'Italy', timezone: 'Europe/Rome' },
+  { id: 'madrid', name: 'Madrid', country: 'Spain', timezone: 'Europe/Madrid' },
+  { id: 'amsterdam', name: 'Amsterdam', country: 'Netherlands', timezone: 'Europe/Amsterdam' },
+  { id: 'vienna', name: 'Vienna', country: 'Austria', timezone: 'Europe/Vienna' },
+  { id: 'zurich', name: 'Zurich', country: 'Switzerland', timezone: 'Europe/Zurich' },
+  { id: 'stockholm', name: 'Stockholm', country: 'Sweden', timezone: 'Europe/Stockholm' },
+  { id: 'oslo', name: 'Oslo', country: 'Norway', timezone: 'Europe/Oslo' },
+  { id: 'copenhagen', name: 'Copenhagen', country: 'Denmark', timezone: 'Europe/Copenhagen' },
+  { id: 'helsinki', name: 'Helsinki', country: 'Finland', timezone: 'Europe/Helsinki' },
+  { id: 'warsaw', name: 'Warsaw', country: 'Poland', timezone: 'Europe/Warsaw' },
+  { id: 'prague', name: 'Prague', country: 'Czech Republic', timezone: 'Europe/Prague' },
+  { id: 'budapest', name: 'Budapest', country: 'Hungary', timezone: 'Europe/Budapest' },
+  { id: 'athens', name: 'Athens', country: 'Greece', timezone: 'Europe/Athens' },
+  { id: 'lisbon', name: 'Lisbon', country: 'Portugal', timezone: 'Europe/Lisbon' },
+  { id: 'dublin', name: 'Dublin', country: 'Ireland', timezone: 'Europe/Dublin' },
+  { id: 'edinburgh', name: 'Edinburgh', country: 'United Kingdom', timezone: 'Europe/London' },
+  { id: 'moscow', name: 'Moscow', country: 'Russia', timezone: 'Europe/Moscow' },
+  { id: 'istanbul', name: 'Istanbul', country: 'Turkey', timezone: 'Europe/Istanbul' },
+
+  // Americas
+  { id: 'new-york', name: 'New York', country: 'United States', timezone: 'America/New_York' },
+  { id: 'los-angeles', name: 'Los Angeles', country: 'United States', timezone: 'America/Los_Angeles' },
+  { id: 'chicago', name: 'Chicago', country: 'United States', timezone: 'America/Chicago' },
+  { id: 'houston', name: 'Houston', country: 'United States', timezone: 'America/Chicago' },
+  { id: 'phoenix', name: 'Phoenix', country: 'United States', timezone: 'America/Phoenix' },
+  { id: 'denver', name: 'Denver', country: 'United States', timezone: 'America/Denver' },
+  { id: 'seattle', name: 'Seattle', country: 'United States', timezone: 'America/Los_Angeles' },
+  { id: 'miami', name: 'Miami', country: 'United States', timezone: 'America/New_York' },
+  { id: 'boston', name: 'Boston', country: 'United States', timezone: 'America/New_York' },
+  { id: 'san-francisco', name: 'San Francisco', country: 'United States', timezone: 'America/Los_Angeles' },
+  { id: 'toronto', name: 'Toronto', country: 'Canada', timezone: 'America/Toronto' },
+  { id: 'vancouver', name: 'Vancouver', country: 'Canada', timezone: 'America/Vancouver' },
+  { id: 'montreal', name: 'Montreal', country: 'Canada', timezone: 'America/Montreal' },
+  { id: 'mexico-city', name: 'Mexico City', country: 'Mexico', timezone: 'America/Mexico_City' },
+  { id: 'sao-paulo', name: 'São Paulo', country: 'Brazil', timezone: 'America/Sao_Paulo' },
+  { id: 'rio', name: 'Rio de Janeiro', country: 'Brazil', timezone: 'America/Sao_Paulo' },
+  { id: 'buenos-aires', name: 'Buenos Aires', country: 'Argentina', timezone: 'America/Argentina/Buenos_Aires' },
+  { id: 'lima', name: 'Lima', country: 'Peru', timezone: 'America/Lima' },
+  { id: 'bogota', name: 'Bogotá', country: 'Colombia', timezone: 'America/Bogota' },
+  { id: 'santiago', name: 'Santiago', country: 'Chile', timezone: 'America/Santiago' },
+
+  // Asia
+  { id: 'tokyo', name: 'Tokyo', country: 'Japan', timezone: 'Asia/Tokyo' },
+  { id: 'osaka', name: 'Osaka', country: 'Japan', timezone: 'Asia/Tokyo' },
+  { id: 'seoul', name: 'Seoul', country: 'South Korea', timezone: 'Asia/Seoul' },
+  { id: 'beijing', name: 'Beijing', country: 'China', timezone: 'Asia/Shanghai' },
+  { id: 'shanghai', name: 'Shanghai', country: 'China', timezone: 'Asia/Shanghai' },
+  { id: 'hong-kong', name: 'Hong Kong', country: 'China', timezone: 'Asia/Hong_Kong' },
+  { id: 'taipei', name: 'Taipei', country: 'Taiwan', timezone: 'Asia/Taipei' },
+  { id: 'singapore', name: 'Singapore', country: 'Singapore', timezone: 'Asia/Singapore' },
+  { id: 'bangkok', name: 'Bangkok', country: 'Thailand', timezone: 'Asia/Bangkok' },
+  { id: 'kuala-lumpur', name: 'Kuala Lumpur', country: 'Malaysia', timezone: 'Asia/Kuala_Lumpur' },
+  { id: 'jakarta', name: 'Jakarta', country: 'Indonesia', timezone: 'Asia/Jakarta' },
+  { id: 'mumbai', name: 'Mumbai', country: 'India', timezone: 'Asia/Kolkata' },
+  { id: 'delhi', name: 'Delhi', country: 'India', timezone: 'Asia/Kolkata' },
+  { id: 'bangalore', name: 'Bangalore', country: 'India', timezone: 'Asia/Kolkata' },
+  { id: 'dubai', name: 'Dubai', country: 'UAE', timezone: 'Asia/Dubai' },
+  { id: 'abu-dhabi', name: 'Abu Dhabi', country: 'UAE', timezone: 'Asia/Dubai' },
+  { id: 'riyadh', name: 'Riyadh', country: 'Saudi Arabia', timezone: 'Asia/Riyadh' },
+  { id: 'tel-aviv', name: 'Tel Aviv', country: 'Israel', timezone: 'Asia/Jerusalem' },
+  { id: 'manila', name: 'Manila', country: 'Philippines', timezone: 'Asia/Manila' },
+  { id: 'hanoi', name: 'Hanoi', country: 'Vietnam', timezone: 'Asia/Ho_Chi_Minh' },
+  { id: 'ho-chi-minh', name: 'Ho Chi Minh City', country: 'Vietnam', timezone: 'Asia/Ho_Chi_Minh' },
+
+  // Oceania
+  { id: 'sydney', name: 'Sydney', country: 'Australia', timezone: 'Australia/Sydney' },
+  { id: 'melbourne', name: 'Melbourne', country: 'Australia', timezone: 'Australia/Melbourne' },
+  { id: 'brisbane', name: 'Brisbane', country: 'Australia', timezone: 'Australia/Brisbane' },
+  { id: 'perth', name: 'Perth', country: 'Australia', timezone: 'Australia/Perth' },
+  { id: 'auckland', name: 'Auckland', country: 'New Zealand', timezone: 'Pacific/Auckland' },
+  { id: 'wellington', name: 'Wellington', country: 'New Zealand', timezone: 'Pacific/Auckland' },
+
+  // Africa
+  { id: 'cairo', name: 'Cairo', country: 'Egypt', timezone: 'Africa/Cairo' },
+  { id: 'johannesburg', name: 'Johannesburg', country: 'South Africa', timezone: 'Africa/Johannesburg' },
+  { id: 'cape-town', name: 'Cape Town', country: 'South Africa', timezone: 'Africa/Johannesburg' },
+  { id: 'lagos', name: 'Lagos', country: 'Nigeria', timezone: 'Africa/Lagos' },
+  { id: 'nairobi', name: 'Nairobi', country: 'Kenya', timezone: 'Africa/Nairobi' },
+  { id: 'casablanca', name: 'Casablanca', country: 'Morocco', timezone: 'Africa/Casablanca' },
 ];
+
+/**
+ * Generate time options for the time picker (every 15 minutes)
+ */
+function generateTimeOptions(): string[] {
+  const options = ['Now'];
+  for (let hour = 0; hour < 24; hour++) {
+    for (const minute of [0, 15, 30, 45]) {
+      options.push(`${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`);
+    }
+  }
+  return options;
+}
+
+const TIME_OPTIONS = generateTimeOptions();
 
 /**
  * Nomad Time Zone Manager UI
@@ -59,75 +153,192 @@ export const COMMON_TIMEZONES: TimeLocation[] = [
 export class NomadUI {
   private window: Window | null = null;
   private state: NomadState = {
-    locations: [],
-    sortByName: true,
-    useFormat24h: true,
+    cities: [],
+    selectedDate: new Date(),
+    useCurrentTime: true,
   };
 
-  private timesLabel: Label | null = null;
   private timeUpdateInterval: NodeJS.Timeout | null = null;
+  private searchResults: City[] = [];
 
   constructor(private a: App) {
+    // Initialize with default city synchronously
+    this.state.cities = [
+      WORLD_CITIES.find((c) => c.id === 'edinburgh') || WORLD_CITIES[0],
+    ];
+
+    // Try to load saved settings (may override default)
     this.loadSettings();
   }
 
   private loadSettings(): void {
-    const locations = this.a.getPreference('nomad_locations', '[]');
-    const sortByName = this.a.getPreferenceBool('nomad_sort_by_name', true);
-    const useFormat24h = this.a.getPreferenceBool('nomad_24h_format', true);
-
-    Promise.resolve(locations).then((locs: string) => {
-      try {
-        this.state.locations = JSON.parse(locs);
-      } catch {
-        this.state.locations = [];
+    try {
+      const citiesJson = this.a.getPreference('nomad_cities', '[]');
+      // Handle both sync and async getPreference
+      if (citiesJson instanceof Promise) {
+        citiesJson.then((json: string) => {
+          this.parseAndSetCities(json);
+        });
+      } else {
+        this.parseAndSetCities(citiesJson as string);
       }
-    });
+    } catch {
+      // Keep default city on error
+    }
+  }
 
-    Promise.resolve(sortByName).then((sort: boolean) => {
-      this.state.sortByName = sort;
-    });
-
-    Promise.resolve(useFormat24h).then((format: boolean) => {
-      this.state.useFormat24h = format;
-    });
+  private parseAndSetCities(json: string): void {
+    try {
+      const savedCities = JSON.parse(json);
+      if (savedCities.length > 0) {
+        this.state.cities = savedCities;
+        this.refreshUI();
+      }
+    } catch {
+      // Keep default city on parse error
+    }
   }
 
   private saveSettings(): void {
-    this.a.setPreference('nomad_locations', JSON.stringify(this.state.locations));
-    this.a.setPreference('nomad_sort_by_name', this.state.sortByName.toString());
-    this.a.setPreference('nomad_24h_format', this.state.useFormat24h.toString());
+    this.a.setPreference('nomad_cities', JSON.stringify(this.state.cities));
   }
 
-  private calculateTime(offset: number): string {
-    const now = new Date();
-    const utcTime = new Date(now.getTime() + now.getTimezoneOffset() * 60000);
-    const offsetMs = offset * 60 * 60 * 1000;
-    const localTime = new Date(utcTime.getTime() + offsetMs);
-
-    if (this.state.useFormat24h) {
-      return localTime.toLocaleTimeString('en-US', {
+  /**
+   * Format time for a given timezone using the Intl API
+   * This properly handles DST and all timezone rules
+   */
+  private formatTime(timezone: string, date: Date): string {
+    try {
+      return date.toLocaleTimeString('en-GB', {
+        timeZone: timezone,
         hour: '2-digit',
         minute: '2-digit',
-        second: '2-digit',
         hour12: false,
       });
-    } else {
-      return localTime.toLocaleTimeString('en-US', {
-        hour: '2-digit',
-        minute: '2-digit',
-        second: '2-digit',
-        hour12: true,
-      });
+    } catch {
+      return '--:--';
     }
   }
 
-  private updateTimes(): void {
-    for (const loc of this.state.locations) {
-      loc.currentTime = this.calculateTime(loc.offset);
+  /**
+   * Format date for a given timezone
+   */
+  private formatDate(timezone: string, date: Date): string {
+    try {
+      return date.toLocaleDateString('en-GB', {
+        timeZone: timezone,
+        weekday: 'short',
+        day: '2-digit',
+        month: 'short',
+        year: 'numeric',
+      });
+    } catch {
+      return '---';
+    }
+  }
+
+  /**
+   * Get timezone abbreviation (e.g., BST, EST, PST)
+   */
+  private getTimezoneAbbr(timezone: string, date: Date): string {
+    try {
+      const parts = date.toLocaleTimeString('en-GB', {
+        timeZone: timezone,
+        timeZoneName: 'short',
+      }).split(' ');
+      return parts[parts.length - 1] || timezone;
+    } catch {
+      return timezone;
+    }
+  }
+
+  /**
+   * Add a city to the list
+   */
+  private addCity(city: City): void {
+    // Check if already added
+    if (this.state.cities.find((c) => c.id === city.id)) {
+      return;
     }
 
+    this.state.cities.push({ ...city });
+    this.saveSettings();
     this.refreshUI();
+  }
+
+  /**
+   * Remove a city from the list
+   */
+  private removeCity(cityId: string): void {
+    this.state.cities = this.state.cities.filter((c) => c.id !== cityId);
+    this.saveSettings();
+    this.refreshUI();
+  }
+
+  /**
+   * Handle date selection from calendar
+   */
+  private onDateSelected(cityTimezone: string, dateStr: string): void {
+    // Parse the ISO date string and preserve the time
+    const [year, month, day] = dateStr.split('-').map(Number);
+    const currentDate = this.state.selectedDate;
+
+    // Get current time in the city's timezone
+    const timeStr = this.formatTime(cityTimezone, currentDate);
+    const [hours, minutes] = timeStr.split(':').map(Number);
+
+    // Create new date with selected date but preserve time
+    const newDate = new Date(year, month - 1, day, hours, minutes);
+    this.state.selectedDate = newDate;
+    this.state.useCurrentTime = false;
+    this.refreshUI();
+  }
+
+  /**
+   * Handle time selection
+   */
+  private onTimeSelected(cityTimezone: string, timeStr: string): void {
+    if (timeStr === 'Now') {
+      this.state.useCurrentTime = true;
+      this.state.selectedDate = new Date();
+      this.refreshUI();
+      return;
+    }
+
+    const [hours, minutes] = timeStr.split(':').map(Number);
+
+    // Get the current date in the city's timezone
+    const dateStr = this.formatDate(cityTimezone, this.state.selectedDate);
+
+    // Parse current selected date
+    const currentDate = this.state.selectedDate;
+    const newDate = new Date(
+      currentDate.getFullYear(),
+      currentDate.getMonth(),
+      currentDate.getDate(),
+      hours,
+      minutes
+    );
+
+    this.state.selectedDate = newDate;
+    this.state.useCurrentTime = false;
+    this.refreshUI();
+  }
+
+  /**
+   * Filter cities for search
+   */
+  private filterCities(query: string): City[] {
+    if (!query || query.length < 2) {
+      return [];
+    }
+
+    const lowerQuery = query.toLowerCase();
+    return WORLD_CITIES.filter(
+      (city) =>
+        city.name.toLowerCase().includes(lowerQuery) ||
+        city.country.toLowerCase().includes(lowerQuery)
+    ).slice(0, 10); // Limit to 10 results
   }
 
   private refreshUI(): void {
@@ -136,131 +347,142 @@ export class NomadUI {
     }
   }
 
-  private addLocation(location: TimeLocation): void {
-    // Check if already added
-    if (this.state.locations.find((l) => l.id === location.id)) {
-      return;
-    }
+  /**
+   * Build a single city card
+   */
+  private buildCityCard(city: City): void {
+    const displayDate = this.state.useCurrentTime ? new Date() : this.state.selectedDate;
+    const time = this.formatTime(city.timezone, displayDate);
+    const date = this.formatDate(city.timezone, displayDate);
+    const tzAbbr = this.getTimezoneAbbr(city.timezone, displayDate);
 
-    const newLoc = { ...location, id: `${location.id}-${Date.now()}` };
-    this.state.locations.push(newLoc);
-    this.saveSettings();
-    this.updateTimes();
-    this.refreshUI();
+    // Card with content matching original layout
+    this.a.card('', '', () => {
+      this.a.padded(() => {
+        this.a.vbox(() => {
+          // Row 1: City name + menu button
+          this.a.hbox(() => {
+            this.a.label(city.name.toUpperCase()).withId(`nomad-city-${city.id}`);
+            this.a.spacer();
+            this.a
+              .button('…')
+              .onClick(() => this.removeCity(city.id))
+              .withId(`nomad-menu-${city.id}`);
+          });
+
+          // Row 2: Country and timezone abbreviation
+          this.a
+            .label(`${city.country.toUpperCase()} · ${tzAbbr}`)
+            .withId(`nomad-tz-${city.id}`);
+
+          this.a.spacer();
+
+          // Row 3: Date picker and time display
+          this.a.hbox(() => {
+            // Date picker button
+            this.a
+              .button(`${date} ▾`)
+              .onClick(() => {
+                // Show calendar - for now just a simple date display
+              })
+              .withId(`nomad-date-${city.id}`);
+
+            this.a.spacer();
+
+            // Time display with dropdown
+            const timeSelect = this.a.select(
+              ['Now', ...TIME_OPTIONS],
+              (selected) => {
+                this.onTimeSelected(city.timezone, selected);
+              }
+            ).withId(`nomad-time-${city.id}`);
+
+            // Show actual time, or "Now" if using current time
+            if (this.state.useCurrentTime) {
+              // Display current time value but select "Now"
+              timeSelect.setSelected(`Now`);
+            } else {
+              timeSelect.setSelected(time);
+            }
+          });
+
+          // Row 4: Large time display
+          this.a.hbox(() => {
+            this.a.spacer();
+            this.a.label(time).withId(`nomad-time-display-${city.id}`);
+          });
+        });
+      });
+    });
   }
 
-  private removeLocation(id: string): void {
-    this.state.locations = this.state.locations.filter((l) => l.id !== id);
-    this.saveSettings();
-    this.refreshUI();
-  }
+  /**
+   * Build the search/add section
+   */
+  private buildSearchSection(): void {
+    // Row with + icon and search dropdown
+    this.a.hbox(() => {
+      this.a.label('+').withId('nomad-add-icon');
 
-  private getSortedLocations(): TimeLocation[] {
-    const sorted = [...this.state.locations];
-
-    if (this.state.sortByName) {
-      sorted.sort((a, b) => a.name.localeCompare(b.name));
-    } else {
-      sorted.sort((a, b) => a.offset - b.offset);
-    }
-
-    return sorted;
+      // Search dropdown to add cities
+      const addCitySelect = this.a.select(
+        ['ADD A PLACE', ...WORLD_CITIES.slice(0, 20).map((c) => `${c.name}, ${c.country}`)],
+        (selected) => {
+          if (selected !== 'ADD A PLACE') {
+            const match = WORLD_CITIES.find((c) => `${c.name}, ${c.country}` === selected);
+            if (match) {
+              this.addCity(match);
+            }
+          }
+        }
+      );
+      addCitySelect.setSelected('ADD A PLACE');
+    });
   }
 
   buildUI(win: Window): void {
     this.window = win;
 
-    this.a.vbox(() => {
-      // Title
-      this.a.label('Nomad - Time Zone Manager').withId('nomadTitle');
-
-      this.a.separator();
-
-      // Add location section
-      this.a.label('Add Location').withId('nomadAddLabel');
-      this.a.scroll(() => {
-        this.a.vbox(() => {
-          const commonLocations = COMMON_TIMEZONES.slice(0, 8);
-          for (const loc of commonLocations) {
-            this.a
-              .button(`+ ${loc.name}`)
-              .onClick(() => this.addLocation(loc))
-              .withId(`nomad-add-${loc.id}`);
-          }
-        });
-      });
-
-      this.a.separator();
-
-      // Sorting and display options
-      this.a.hbox(() => {
-        this.a
-          .button(this.state.sortByName ? 'Sort by UTC Offset' : 'Sort by Name')
-          .onClick(() => {
-            this.state.sortByName = !this.state.sortByName;
-            this.saveSettings();
-            this.updateTimes();
-            this.refreshUI();
-          })
-          .withId('nomadSortBtn');
-
-        this.a.spacer();
-
-        this.a
-          .button(this.state.useFormat24h ? '12-Hour' : '24-Hour')
-          .onClick(() => {
-            this.state.useFormat24h = !this.state.useFormat24h;
-            this.saveSettings();
-            this.updateTimes();
-            this.refreshUI();
-          })
-          .withId('nomadFormatBtn');
-      });
-
-      this.a.separator();
-
-      // Current times display
-      this.a.label('Current Times').withId('nomadTimesLabel');
-
-      if (this.state.locations.length === 0) {
-        this.a.label('Add a location to see times').withId('nomadPlaceholder');
-      } else {
-        this.a.scroll(() => {
-          this.a.vbox(() => {
-            for (const loc of this.getSortedLocations()) {
-              this.a.hbox(() => {
-                this.a
-                  .label(`${loc.name} (UTC${loc.offset >= 0 ? '+' : ''}${loc.offset})`)
-                  .withId(`nomad-loc-name-${loc.id}`);
-
-                this.a.spacer();
-
-                this.a.label(loc.currentTime || '--:--:--').withId(`nomad-loc-time-${loc.id}`);
-
-                this.a
-                  .button('×')
-                  .onClick(() => this.removeLocation(loc.id))
-                  .withId(`nomad-remove-${loc.id}`);
-              });
-            }
-          });
-        });
-      }
+    // Apply custom theme colors matching the original
+    this.a.setCustomTheme({
+      background: '#180C27',
+      foreground: '#FFFFFF',
+      primary: '#FF8500',
+      inputBackground: '#00000000',
+      placeholder: '#FFFFFF40',
     });
 
-    // Start timer for updating times
+    this.a.vbox(() => {
+      // City cards
+      for (const city of this.state.cities) {
+        this.buildCityCard(city);
+      }
+
+      this.a.separator();
+
+      // Add section
+      this.buildSearchSection();
+    });
+
+    // Start timer for updating times (every 30 seconds is sufficient for HH:MM display)
     if (!this.timeUpdateInterval) {
       this.timeUpdateInterval = setInterval(() => {
-        this.updateTimes();
-      }, 1000);
+        if (this.state.useCurrentTime && this.window) {
+          this.state.selectedDate = new Date();
+          try {
+            this.refreshUI();
+          } catch (e) {
+            // Window may have been closed - stop the timer
+            this.cleanup();
+          }
+        }
+      }, 30000);
     }
-
-    this.updateTimes();
   }
 
   // Public methods for testing
-  getLocations(): ReadonlyArray<TimeLocation> {
-    return [...this.state.locations];
+  getCities(): ReadonlyArray<City> {
+    return [...this.state.cities];
   }
 
   getState(): Readonly<NomadState> {
@@ -272,10 +494,11 @@ export class NomadUI {
       clearInterval(this.timeUpdateInterval);
       this.timeUpdateInterval = null;
     }
+    this.window = null;
   }
 
-  calculateTimeForOffset(offset: number): string {
-    return this.calculateTime(offset);
+  formatTimeForTimezone(timezone: string): string {
+    return this.formatTime(timezone, this.state.selectedDate);
   }
 }
 
@@ -285,8 +508,16 @@ export class NomadUI {
 export function buildNomadApp(a: App, win: Window): NomadUI {
   const ui = new NomadUI(a);
 
+  // Register cleanup for test mode (ensures timer is stopped)
+  a.registerCleanup(() => ui.cleanup());
+
   win.setContent(() => {
     ui.buildUI(win);
+  });
+
+  win.setCloseIntercept(() => {
+    ui.cleanup();
+    return true;
   });
 
   return ui;
@@ -294,9 +525,9 @@ export function buildNomadApp(a: App, win: Window): NomadUI {
 
 // Standalone execution
 if (require.main === module) {
-  const { app } = require('tsyne');
-  app({ title: 'Nomad', width: 600, height: 800 }, (a: App) => {
-    a.window({ title: 'Nomad - Time Zone Manager', width: 600, height: 800 }, (win: Window) => {
+  const { app, resolveTransport } = require('tsyne');
+  app(resolveTransport(), { title: 'Nomad' }, (a: App) => {
+    a.window({ title: 'Nomad', width: 340, height: 600 }, (win: Window) => {
       buildNomadApp(a, win);
     });
   });

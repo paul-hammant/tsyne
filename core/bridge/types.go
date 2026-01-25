@@ -1929,11 +1929,17 @@ func stringToCursor(cursorType string) desktop.Cursor {
 }
 
 func NewBridge(testMode bool) *Bridge {
+	return NewBridgeWithAppID(testMode, "com.tsyne.app")
+}
+
+func NewBridgeWithAppID(testMode bool, appID string) *Bridge {
 	var fyneApp fyne.App
 	if testMode {
 		fyneApp = test.NewApp()
 	} else {
-		fyneApp = app.New()
+		// Use NewWithID to enable Fyne preferences API
+		// Each app should have a unique ID for separate preference storage
+		fyneApp = app.NewWithID(appID)
 	}
 
 	// Create scalable theme with default font size
@@ -1973,7 +1979,7 @@ func NewBridge(testMode bool) *Bridge {
 // On desktop/web, this would need a different approach and isn't currently used.
 // Uses app.SetEmbeddedDriver() to configure the app with embedded driver, avoiding JNI issues.
 func NewBridgeWithEmbeddedDriver(embeddedDriver embedded.Driver) *Bridge {
-	fyneApp := app.New()
+	fyneApp := app.NewWithID("com.tsyne.app")
 	app.SetEmbeddedDriver(fyneApp, embeddedDriver)
 
 	// Create scalable theme with default font size
