@@ -61,6 +61,45 @@ export class Button extends Widget {
 }
 
 /**
+ * Menu item for MenuButton popup menu
+ */
+export interface PopupMenuItem {
+  label: string;
+  onClick: () => void;
+}
+
+/**
+ * MenuButton - a button that shows a popup menu when clicked
+ * The menu appears directly below the button, positioned automatically.
+ */
+export class MenuButton extends Widget {
+  constructor(ctx: Context, text: string, menuItems: PopupMenuItem[], windowId: string) {
+    const id = ctx.generateId('menubutton');
+    super(ctx, id);
+
+    // Build menu items with callbacks
+    const items = menuItems.map((item, index) => {
+      const callbackId = ctx.generateId('callback');
+      ctx.bridge.registerEventHandler(callbackId, () => {
+        item.onClick();
+      });
+      return {
+        label: item.label,
+        callbackId
+      };
+    });
+
+    ctx.bridge.send('createMenuButton', {
+      id,
+      text,
+      windowId,
+      menuItems: items
+    });
+    ctx.addToCurrentContainer(id, this);
+  }
+}
+
+/**
  * Entry (text input) widget
  */
 export class Entry extends Widget {

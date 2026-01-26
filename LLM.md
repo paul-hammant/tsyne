@@ -391,9 +391,17 @@ class Store {
 ## Widget Categories
 
 **Containers:** vbox, hbox, stack, scroll, grid, center, max, border, gridwrap, adaptivegrid, padded, split, tabs, doctabs, card, accordion, form, themeoverride, clip, innerwindow, navigation, popup, multiplewindows
-**Inputs:** button, entry, multilineentry, passwordentry, checkbox, select, selectentry, radiogroup, checkgroup, slider, dateentry, calendar
+**Inputs:** button, menuButton, entry, multilineentry, passwordentry, checkbox, select, selectentry, radiogroup, checkgroup, slider, dateentry, calendar
 **Display:** label, hyperlink, separator, spacer, progressbar, progressbarInfinite, activity, image, richtext, table, list, tree, toolbar, menu, textgrid, icon, fileicon
 **Canvas:** canvasLine, canvasCircle, canvasRectangle, canvasText, canvasRaster, canvasLinearGradient, canvasArc, canvasPolygon, canvasRadialGradient
+
+**MenuButton** - Button with popup menu (positioned below button):
+```typescript
+a.menuButton('…', [
+  { label: 'Delete', onClick: () => removeItem(id) },
+  { label: 'Edit', onClick: () => editItem(id) }
+]).withId('item-menu');
+```
 
 **TappableCanvasRaster (pixel-based rendering):**
 ```typescript

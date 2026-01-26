@@ -9,6 +9,8 @@ import { ITsyneWindow, createTsyneWindow, isDesktopMode, isPhoneMode } from './t
 import {
   // Inputs
   Button,
+  MenuButton,
+  PopupMenuItem,
   Checkbox,
   CheckGroup,
   DateEntry,
@@ -447,6 +449,24 @@ export class App {
    */
   button(text: string, className?: string): Button {
     return new Button(this.ctx, text, className);
+  }
+
+  /**
+   * Create a button that shows a popup menu when clicked.
+   * The menu appears directly below the button.
+   * @param text - Button label text
+   * @param menuItems - Array of menu items with label and onClick callback
+   * @returns MenuButton widget
+   * @example
+   * a.menuButton('…', [
+   *   { label: 'Delete', onClick: () => deleteItem() },
+   *   { label: 'Edit', onClick: () => editItem() }
+   * ]);
+   */
+  menuButton(text: string, menuItems: PopupMenuItem[]): MenuButton {
+    // Need window ID for popup positioning - get from current window context
+    const windowId = this.ctx.getCurrentWindow() || '';
+    return new MenuButton(this.ctx, text, menuItems, windowId);
   }
 
   /**

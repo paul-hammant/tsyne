@@ -20,7 +20,7 @@
  * @tsyne-app:count single
  */
 
-import type { App, Window, Label, Button, Popup } from 'tsyne';
+import type { App, Window, Label } from 'tsyne';
 
 /**
  * City data with proper timezone support
@@ -181,8 +181,6 @@ export class NomadUI {
   private timeUpdateInterval: NodeJS.Timeout | null = null;
   private searchResults: City[] = [];
   private isBuilding: boolean = false; // Prevent recursive rebuilds during construction
-  private cityMenuPopups: Map<string, Popup> = new Map(); // City menu popups
-  private cityMenuButtons: Map<string, Button> = new Map(); // Menu buttons for positioning
 
   constructor(private a: App) {
     // Initialize with default city synchronously
@@ -376,22 +374,7 @@ export class NomadUI {
       return;
     }
     if (this.window) {
-      // Clear maps before rebuild
-      this.cityMenuPopups.clear();
-      this.cityMenuButtons.clear();
       this.window.setContent(() => this.buildUI(this.window!));
-    }
-  }
-
-  /**
-   * Show city menu popup positioned below the menu button
-   */
-  private showCityMenu(city: City): void {
-    const popup = this.cityMenuPopups.get(city.id);
-    const button = this.cityMenuButtons.get(city.id);
-    if (popup && button) {
-      // Show popup positioned below the button
-      popup.showAtWidget(button);
     }
   }
 
@@ -429,11 +412,10 @@ export class NomadUI {
             this.a.hbox(() => {
               this.a.label(city.name.toUpperCase()).withId(`nomad-city-${city.id}`);
               this.a.spacer();
-              const menuBtn = this.a
-                .button('…')
-                .onClick(() => this.showCityMenu(city))
-                .withId(`nomad-menu-${city.id}`);
-              this.cityMenuButtons.set(city.id, menuBtn);
+              this.a.menuButton('…', [
+                { label: 'Delete Place', onClick: () => this.removeCity(city.id) },
+                { label: 'Photo info', onClick: () => this.showPhotoInfo(city) }
+              ]).withId(`nomad-menu-${city.id}`);
             });
 
             // Row 2: Country and timezone abbreviation
@@ -477,23 +459,6 @@ export class NomadUI {
         });
       });
     });
-
-    // Create popup menu for this city (needs window ID)
-    if (this.window) {
-      const popup = this.a.popup(this.window.id, () => {
-        this.a.vbox(() => {
-          this.a.button('Delete Place').onClick(() => {
-            this.cityMenuPopups.get(city.id)?.hide();
-            this.removeCity(city.id);
-          }).withId(`nomad-delete-${city.id}`);
-          this.a.button('Photo info').onClick(() => {
-            this.cityMenuPopups.get(city.id)?.hide();
-            this.showPhotoInfo(city);
-          }).withId(`nomad-photo-info-${city.id}`);
-        });
-      });
-      this.cityMenuPopups.set(city.id, popup);
-    }
   }
 
   /**

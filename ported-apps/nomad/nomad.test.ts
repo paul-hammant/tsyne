@@ -198,6 +198,7 @@ describe('Nomad Timezone Logic', () => {
         cities: [],
         selectedDate: new Date(),
         useCurrentTime: true,
+        selectedTimeSlot: 'Now',
       };
 
       expect(state.cities).toEqual([]);
@@ -223,6 +224,7 @@ describe('Nomad Timezone Logic', () => {
         cities: [],
         selectedDate: new Date(),
         useCurrentTime: true,
+        selectedTimeSlot: 'Now',
       };
 
       // Selecting a specific date should disable useCurrentTime
@@ -240,6 +242,7 @@ describe('Nomad Timezone Logic', () => {
         cities: [],
         selectedDate: new Date('2024-01-01'),
         useCurrentTime: false,
+        selectedTimeSlot: '10:00',
       };
 
       // Selecting "Now" should enable useCurrentTime
