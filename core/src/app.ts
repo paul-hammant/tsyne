@@ -759,6 +759,7 @@ export class App {
       | {
           path?: string;
           resource?: string;
+          url?: string;  // Remote URL for image
           fillMode?: 'contain' | 'stretch' | 'original';
           onClick?: () => void;
           onDrag?: (x: number, y: number) => void;

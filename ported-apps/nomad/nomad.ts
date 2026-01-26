@@ -20,7 +20,7 @@
  * @tsyne-app:count single
  */
 
-import type { App, Window, Label, Button } from 'tsyne';
+import type { App, Window, Label, Button, Popup } from 'tsyne';
 
 /**
  * City data with proper timezone support
@@ -30,8 +30,26 @@ export interface City {
   name: string;
   country: string;
   timezone: string; // IANA timezone name (e.g., 'Europe/London')
-  imageUrl?: string; // Optional background image
+  imageUrl?: string; // Unsplash background image URL
 }
+
+/**
+ * Static photo URLs for cities
+ * Using Picsum for reliable placeholder images (no auth required)
+ * In production, would use Unsplash API with proper authentication
+ */
+const CITY_IMAGES: Record<string, string> = {
+  'edinburgh': 'https://picsum.photos/seed/edinburgh/400/200',
+  'london': 'https://picsum.photos/seed/london/400/200',
+  'paris': 'https://picsum.photos/seed/paris/400/200',
+  'berlin': 'https://picsum.photos/seed/berlin/400/200',
+  'rome': 'https://picsum.photos/seed/rome/400/200',
+  'new-york': 'https://picsum.photos/seed/newyork/400/200',
+  'tokyo': 'https://picsum.photos/seed/tokyo/400/200',
+  'sydney': 'https://picsum.photos/seed/sydney/400/200',
+  'dubai': 'https://picsum.photos/seed/dubai/400/200',
+  'singapore': 'https://picsum.photos/seed/singapore/400/200',
+};
 
 /**
  * App state
@@ -163,6 +181,7 @@ export class NomadUI {
   private timeUpdateInterval: NodeJS.Timeout | null = null;
   private searchResults: City[] = [];
   private isBuilding: boolean = false; // Prevent recursive rebuilds during construction
+  private cityMenuPopups: Map<string, Popup> = new Map(); // City menu popups
 
   constructor(private a: App) {
     // Initialize with default city synchronously
@@ -356,8 +375,28 @@ export class NomadUI {
       return;
     }
     if (this.window) {
+      // Clear popup map before rebuild
+      this.cityMenuPopups.clear();
       this.window.setContent(() => this.buildUI(this.window!));
     }
+  }
+
+  /**
+   * Show city menu popup
+   */
+  private showCityMenu(city: City): void {
+    const popup = this.cityMenuPopups.get(city.id);
+    if (popup) {
+      popup.show();
+    }
+  }
+
+  /**
+   * Show photo info for a city (placeholder)
+   */
+  private showPhotoInfo(city: City): void {
+    // For now, just log - could show a dialog with photo credits
+    console.log(`Photo info for ${city.name}`);
   }
 
   /**
@@ -369,60 +408,87 @@ export class NomadUI {
     const date = this.formatDate(city.timezone, displayDate);
     const tzAbbr = this.getTimezoneAbbr(city.timezone, displayDate);
 
-    // Card with content matching original layout
-    this.a.card('', '', () => {
-      this.a.padded(() => {
-        this.a.vbox(() => {
-          // Row 1: City name + menu button
-          this.a.hbox(() => {
-            this.a.label(city.name.toUpperCase()).withId(`nomad-city-${city.id}`);
-            this.a.spacer();
+    // Get image URL for this city (fallback to seeded placeholder)
+    const imageUrl = city.imageUrl || CITY_IMAGES[city.id] ||
+      `https://picsum.photos/seed/${encodeURIComponent(city.id)}/400/200`;
+
+    // Card with background image using stack
+    this.a.stack(() => {
+      // Layer 1: Background image
+      this.a.image({ url: imageUrl, fillMode: 'stretch' });
+
+      // Layer 2: Content overlay
+      this.a.card('', '', () => {
+        this.a.padded(() => {
+          this.a.vbox(() => {
+            // Row 1: City name + menu button
+            this.a.hbox(() => {
+              this.a.label(city.name.toUpperCase()).withId(`nomad-city-${city.id}`);
+              this.a.spacer();
+              this.a
+                .button('…')
+                .onClick(() => this.showCityMenu(city))
+                .withId(`nomad-menu-${city.id}`);
+            });
+
+            // Row 2: Country and timezone abbreviation
             this.a
-              .button('…')
-              .onClick(() => this.removeCity(city.id))
-              .withId(`nomad-menu-${city.id}`);
-          });
-
-          // Row 2: Country and timezone abbreviation
-          this.a
-            .label(`${city.country.toUpperCase()} · ${tzAbbr}`)
-            .withId(`nomad-tz-${city.id}`);
-
-          this.a.spacer();
-
-          // Row 3: Date picker and time selector
-          this.a.hbox(() => {
-            // Date picker button
-            this.a
-              .button(`${date} ▾`)
-              .onClick(() => {
-                // Show calendar - for now just a simple date display
-              })
-              .withId(`nomad-date-${city.id}`);
+              .label(`${city.country.toUpperCase()} · ${tzAbbr}`)
+              .withId(`nomad-tz-${city.id}`);
 
             this.a.spacer();
 
-            // Time slot selector (select from 15-min intervals)
-            // Use stored slot, not formatted time, to avoid callback loops
-            const timeSelect = this.a.select(
-              ['Now', ...TIME_OPTIONS],
-              (selected) => {
-                this.onTimeSelected(city.timezone, selected);
-              }
-            ).withId(`nomad-time-${city.id}`);
+            // Row 3: Date picker and time selector
+            this.a.hbox(() => {
+              // Date picker button
+              this.a
+                .button(`${date} ▾`)
+                .onClick(() => {
+                  // Show calendar - for now just a simple date display
+                })
+                .withId(`nomad-date-${city.id}`);
 
-            // Set to the stored time slot (user's selection), not the display time
-            timeSelect.setSelected(this.state.selectedTimeSlot);
-          });
+              this.a.spacer();
 
-          // Row 4: Large time display
-          this.a.hbox(() => {
-            this.a.spacer();
-            this.a.label(time).withId(`nomad-time-display-${city.id}`);
+              // Time slot selector (select from 15-min intervals)
+              // Use stored slot, not formatted time, to avoid callback loops
+              const timeSelect = this.a.select(
+                ['Now', ...TIME_OPTIONS],
+                (selected) => {
+                  this.onTimeSelected(city.timezone, selected);
+                }
+              ).withId(`nomad-time-${city.id}`);
+
+              // Set to the stored time slot (user's selection), not the display time
+              timeSelect.setSelected(this.state.selectedTimeSlot);
+            });
+
+            // Row 4: Large time display
+            this.a.hbox(() => {
+              this.a.spacer();
+              this.a.label(time).withId(`nomad-time-display-${city.id}`);
+            });
           });
         });
       });
     });
+
+    // Create popup menu for this city (needs window ID)
+    if (this.window) {
+      const popup = this.a.popup(this.window.id, () => {
+        this.a.vbox(() => {
+          this.a.button('Delete Place').onClick(() => {
+            this.cityMenuPopups.get(city.id)?.hide();
+            this.removeCity(city.id);
+          }).withId(`nomad-delete-${city.id}`);
+          this.a.button('Photo info').onClick(() => {
+            this.cityMenuPopups.get(city.id)?.hide();
+            this.showPhotoInfo(city);
+          }).withId(`nomad-photo-info-${city.id}`);
+        });
+      });
+      this.cityMenuPopups.set(city.id, popup);
+    }
   }
 
   /**

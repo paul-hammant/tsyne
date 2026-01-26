@@ -87,7 +87,7 @@ export interface IApp {
   calendar(initialDate?: string, onSelected?: (date: string) => void): Calendar;
   icon(iconName: ThemeIconName): Icon;
   fileicon(path: string): FileIcon;
-  image(pathOrOptions: string | { path?: string; resource?: string; fillMode?: 'contain' | 'stretch' | 'original'; onClick?: () => void; onDrag?: (x: number, y: number) => void; onDragEnd?: (x: number, y: number) => void }, fillMode?: 'contain' | 'stretch' | 'original', onClick?: () => void, onDrag?: (x: number, y: number) => void, onDragEnd?: (x: number, y: number) => void): Image;
+  image(pathOrOptions: string | { path?: string; resource?: string; url?: string; fillMode?: 'contain' | 'stretch' | 'original'; onClick?: () => void; onDrag?: (x: number, y: number) => void; onDragEnd?: (x: number, y: number) => void }, fillMode?: 'contain' | 'stretch' | 'original', onClick?: () => void, onDrag?: (x: number, y: number) => void, onDragEnd?: (x: number, y: number) => void): Image;
   richtext(segments: Array<{ text: string; bold?: boolean; italic?: boolean; monospace?: boolean }>): RichText;
   textgrid(options?: TextGridOptions | string): TextGrid;
 
@@ -351,7 +351,7 @@ export class SandboxedApp implements IApp {
     return new FileIcon(this.ctx, path);
   }
 
-  image(pathOrOptions: string | { path?: string; resource?: string; fillMode?: 'contain' | 'stretch' | 'original'; onClick?: () => void; onDrag?: (x: number, y: number) => void; onDragEnd?: (x: number, y: number) => void }, fillMode?: 'contain' | 'stretch' | 'original', onClick?: () => void, onDrag?: (x: number, y: number) => void, onDragEnd?: (x: number, y: number) => void): Image {
+  image(pathOrOptions: string | { path?: string; resource?: string; url?: string; fillMode?: 'contain' | 'stretch' | 'original'; onClick?: () => void; onDrag?: (x: number, y: number) => void; onDragEnd?: (x: number, y: number) => void }, fillMode?: 'contain' | 'stretch' | 'original', onClick?: () => void, onDrag?: (x: number, y: number) => void, onDragEnd?: (x: number, y: number) => void): Image {
     return new Image(this.ctx, pathOrOptions, fillMode, onClick, onDrag, onDragEnd);
   }
 

@@ -165,16 +165,32 @@ describe('Nomad Interactivity Tests', () => {
       await captureScreenshot('05-before-remove');
     }, 15000);
 
-    test('should be able to click remove button', async () => {
+    test('should show popup menu when clicking ellipsis button', async () => {
       // Get cities before removal
       const citiesBefore = ui.getCities();
       const hasEdinburgh = citiesBefore.some(c => c.id === 'edinburgh');
       expect(hasEdinburgh).toBe(true);
 
-      // Click the remove button
+      // Click the menu button to show popup
       await ctx.getById('nomad-menu-edinburgh').click();
 
-      // After clicking, Edinburgh should be removed
+      // Wait for popup to appear
+      await ctx.wait(100);
+
+      await captureScreenshot('05b-popup-menu');
+
+      // Delete button should now be visible in popup
+      await ctx.getById('nomad-delete-edinburgh').within(500).shouldExist();
+    }, 15000);
+
+    test('should remove city when clicking Delete Place in popup', async () => {
+      // Click the menu button to show popup
+      await ctx.getById('nomad-menu-edinburgh').click();
+      await ctx.wait(100);
+
+      // Click Delete Place in the popup
+      await ctx.getById('nomad-delete-edinburgh').click();
+
       // Give UI time to update
       await ctx.wait(200);
 
