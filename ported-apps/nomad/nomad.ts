@@ -533,11 +533,8 @@ export class NomadUI {
 
 /**
  * Create the Nomad app
- * @param a App instance
- * @param win Window instance
- * @param options.autoRefresh Whether to start the auto-refresh timer (default: true for production)
  */
-export function buildNomadApp(a: App, win: Window, options?: { autoRefresh?: boolean }): NomadUI {
+export function buildNomadApp(a: App, win: Window): NomadUI {
   const ui = new NomadUI(a);
 
   // Register cleanup (ensures timer is stopped on app exit)
@@ -552,11 +549,7 @@ export function buildNomadApp(a: App, win: Window, options?: { autoRefresh?: boo
     return true;
   });
 
-  // Start auto-refresh by default (production behavior)
-  // Tests can pass autoRefresh: false to disable
-  if (options?.autoRefresh !== false) {
-    ui.startAutoRefresh();
-  }
+  ui.startAutoRefresh();
 
   return ui;
 }
