@@ -40,6 +40,7 @@ export interface NomadState {
   cities: City[];
   selectedDate: Date; // The date/time being viewed (can be past/future)
   useCurrentTime: boolean; // Whether to track current time or show selected time
+  selectedTimeSlot: string; // The time slot selected in dropdown ('Now' or 'HH:MM')
 }
 
 /**
@@ -156,6 +157,7 @@ export class NomadUI {
     cities: [],
     selectedDate: new Date(),
     useCurrentTime: true,
+    selectedTimeSlot: 'Now',
   };
 
   private timeUpdateInterval: NodeJS.Timeout | null = null;
@@ -302,29 +304,21 @@ export class NomadUI {
    * Handle time selection
    */
   private onTimeSelected(cityTimezone: string, timeStr: string): void {
-    // Guard against unnecessary refreshes during initial construction
+    // Guard against unnecessary refreshes - only act if slot actually changed
+    if (timeStr === this.state.selectedTimeSlot) {
+      return; // No change
+    }
+
     if (timeStr === 'Now') {
-      // Only refresh if the state actually changed
-      if (this.state.useCurrentTime) {
-        return; // Already using current time, no change
-      }
       this.state.useCurrentTime = true;
       this.state.selectedDate = new Date();
+      this.state.selectedTimeSlot = 'Now';
       this.refreshUI();
       return;
     }
 
     const [hours, minutes] = timeStr.split(':').map(Number);
-
-    // Parse current selected date
     const currentDate = this.state.selectedDate;
-
-    // Check if this would actually change anything
-    if (!this.state.useCurrentTime &&
-        currentDate.getHours() === hours &&
-        currentDate.getMinutes() === minutes) {
-      return; // No change needed
-    }
 
     const newDate = new Date(
       currentDate.getFullYear(),
@@ -336,6 +330,7 @@ export class NomadUI {
 
     this.state.selectedDate = newDate;
     this.state.useCurrentTime = false;
+    this.state.selectedTimeSlot = timeStr; // Store the exact slot user picked
     this.refreshUI();
   }
 
@@ -395,7 +390,7 @@ export class NomadUI {
 
           this.a.spacer();
 
-          // Row 3: Date picker and time display
+          // Row 3: Date picker and time selector
           this.a.hbox(() => {
             // Date picker button
             this.a
@@ -407,7 +402,8 @@ export class NomadUI {
 
             this.a.spacer();
 
-            // Time display with dropdown
+            // Time slot selector (select from 15-min intervals)
+            // Use stored slot, not formatted time, to avoid callback loops
             const timeSelect = this.a.select(
               ['Now', ...TIME_OPTIONS],
               (selected) => {
@@ -415,13 +411,8 @@ export class NomadUI {
               }
             ).withId(`nomad-time-${city.id}`);
 
-            // Show actual time, or "Now" if using current time
-            if (this.state.useCurrentTime) {
-              // Display current time value but select "Now"
-              timeSelect.setSelected(`Now`);
-            } else {
-              timeSelect.setSelected(time);
-            }
+            // Set to the stored time slot (user's selection), not the display time
+            timeSelect.setSelected(this.state.selectedTimeSlot);
           });
 
           // Row 4: Large time display
