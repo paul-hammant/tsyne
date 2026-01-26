@@ -412,10 +412,10 @@ export class NomadUI {
             this.a.hbox(() => {
               this.a.label(city.name.toUpperCase()).withId(`nomad-city-${city.id}`);
               this.a.spacer();
-              this.a.menuButton('…', [
-                { label: 'Delete Place', onClick: () => this.removeCity(city.id) },
-                { label: 'Photo info', onClick: () => this.showPhotoInfo(city) }
-              ]).withId(`nomad-menu-${city.id}`);
+              this.a.menuButton('…', (menu) => {
+                menu.item('Delete Place', () => this.removeCity(city.id));
+                menu.item('Photo info', () => this.showPhotoInfo(city));
+              }).withId(`nomad-menu-${city.id}`);
             });
 
             // Row 2: Country and timezone abbreviation

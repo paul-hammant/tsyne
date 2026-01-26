@@ -397,10 +397,14 @@ class Store {
 
 **MenuButton** - Button with popup menu (positioned below button):
 ```typescript
-a.menuButton('…', [
-  { label: 'Delete', onClick: () => removeItem(id) },
-  { label: 'Edit', onClick: () => editItem(id) }
-]).withId('item-menu');
+a.menuButton('…', (menu) => {
+  menu.item('Delete', () => removeItem(id));
+  menu.item('Edit', () => editItem(id));
+  // Can use loops/conditionals inside builder
+  for (const action of actions) {
+    menu.item(action.label, action.handler);
+  }
+}).withId('item-menu');
 ```
 
 **TappableCanvasRaster (pixel-based rendering):**

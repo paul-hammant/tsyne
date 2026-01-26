@@ -15,7 +15,7 @@ import { Context } from './context';
 import { Window, WindowOptions } from './window';
 import { ITsyneWindow, createTsyneWindow, isDesktopMode } from './tsyne-window';
 import {
-  Button, MenuButton, PopupMenuItem, Checkbox, CheckGroup, DateEntry, Entry, MultiLineEntry,
+  Button, MenuButton, MenuBuilder, Checkbox, CheckGroup, DateEntry, Entry, MultiLineEntry,
   PasswordEntry, RadioGroup, Select, SelectEntry, Slider,
   Activity, Calendar, FileIcon, Hyperlink, Icon, Image, Label,
   ProgressBar, ProgressBarInfinite, RichText, Separator, Spacer, TextGrid,
@@ -65,7 +65,7 @@ export interface IApp {
 
   // Widgets - Inputs
   button(text: string, className?: string): Button;
-  menuButton(text: string, menuItems: PopupMenuItem[]): MenuButton;
+  menuButton(text: string, builder: (menu: MenuBuilder) => void): MenuButton;
   entry(placeholder?: string, onSubmit?: (text: string) => void, minWidth?: number, onDoubleClick?: () => void, onChange?: (text: string) => void, onCursorChanged?: () => void): Entry;
   multilineentry(placeholder?: string, wrapping?: 'off' | 'word' | 'break'): MultiLineEntry;
   passwordentry(placeholder?: string, onSubmit?: (text: string) => void): PasswordEntry;
@@ -268,9 +268,9 @@ export class SandboxedApp implements IApp {
     return new Button(this.ctx, text, className);
   }
 
-  menuButton(text: string, menuItems: PopupMenuItem[]): MenuButton {
+  menuButton(text: string, builder: (menu: MenuBuilder) => void): MenuButton {
     const windowId = this.ctx.getCurrentWindow() || '';
-    return new MenuButton(this.ctx, text, menuItems, windowId);
+    return new MenuButton(this.ctx, text, builder, windowId);
   }
 
   entry(placeholder?: string, onSubmit?: (text: string) => void, minWidth?: number, onDoubleClick?: () => void, onChange?: (text: string) => void, onCursorChanged?: () => void): Entry {

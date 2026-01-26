@@ -5,7 +5,7 @@ import {
   // Inputs
   Button,
   MenuButton,
-  PopupMenuItem,
+  MenuBuilder,
   Checkbox,
   CheckGroup,
   DateEntry,
@@ -829,7 +829,7 @@ export {
   ProgressDialog,
   Button,
   MenuButton,
-  PopupMenuItem,
+  MenuBuilder,
   Label,
   Entry,
   MultiLineEntry,

@@ -10,7 +10,7 @@ import {
   // Inputs
   Button,
   MenuButton,
-  PopupMenuItem,
+  MenuBuilder,
   Checkbox,
   CheckGroup,
   DateEntry,
@@ -455,18 +455,18 @@ export class App {
    * Create a button that shows a popup menu when clicked.
    * The menu appears directly below the button.
    * @param text - Button label text
-   * @param menuItems - Array of menu items with label and onClick callback
+   * @param builder - Builder function that receives MenuBuilder to add items
    * @returns MenuButton widget
    * @example
-   * a.menuButton('…', [
-   *   { label: 'Delete', onClick: () => deleteItem() },
-   *   { label: 'Edit', onClick: () => editItem() }
-   * ]);
+   * a.menuButton('…', (menu) => {
+   *   menu.item('Delete', () => deleteItem());
+   *   menu.item('Edit', () => editItem());
+   * });
    */
-  menuButton(text: string, menuItems: PopupMenuItem[]): MenuButton {
+  menuButton(text: string, builder: (menu: MenuBuilder) => void): MenuButton {
     // Need window ID for popup positioning - get from current window context
     const windowId = this.ctx.getCurrentWindow() || '';
-    return new MenuButton(this.ctx, text, menuItems, windowId);
+    return new MenuButton(this.ctx, text, builder, windowId);
   }
 
   /**

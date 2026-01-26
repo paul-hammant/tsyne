@@ -47,6 +47,7 @@ export {
 export {
   Button,
   MenuButton,
+  MenuBuilder,
   PopupMenuItem,
   Entry,
   MultiLineEntry,
