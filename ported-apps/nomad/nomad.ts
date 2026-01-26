@@ -182,6 +182,7 @@ export class NomadUI {
   private searchResults: City[] = [];
   private isBuilding: boolean = false; // Prevent recursive rebuilds during construction
   private cityMenuPopups: Map<string, Popup> = new Map(); // City menu popups
+  private cityMenuButtons: Map<string, Button> = new Map(); // Menu buttons for positioning
 
   constructor(private a: App) {
     // Initialize with default city synchronously
@@ -375,19 +376,22 @@ export class NomadUI {
       return;
     }
     if (this.window) {
-      // Clear popup map before rebuild
+      // Clear maps before rebuild
       this.cityMenuPopups.clear();
+      this.cityMenuButtons.clear();
       this.window.setContent(() => this.buildUI(this.window!));
     }
   }
 
   /**
-   * Show city menu popup
+   * Show city menu popup positioned below the menu button
    */
   private showCityMenu(city: City): void {
     const popup = this.cityMenuPopups.get(city.id);
-    if (popup) {
-      popup.show();
+    const button = this.cityMenuButtons.get(city.id);
+    if (popup && button) {
+      // Show popup positioned below the button
+      popup.showAtWidget(button);
     }
   }
 
@@ -425,10 +429,11 @@ export class NomadUI {
             this.a.hbox(() => {
               this.a.label(city.name.toUpperCase()).withId(`nomad-city-${city.id}`);
               this.a.spacer();
-              this.a
+              const menuBtn = this.a
                 .button('…')
                 .onClick(() => this.showCityMenu(city))
                 .withId(`nomad-menu-${city.id}`);
+              this.cityMenuButtons.set(city.id, menuBtn);
             });
 
             // Row 2: Country and timezone abbreviation
