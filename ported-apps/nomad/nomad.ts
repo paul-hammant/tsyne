@@ -469,6 +469,8 @@ export class NomadUI {
       primary: '#FF8500',
       inputBackground: '#00000000',
       placeholder: '#FFFFFF40',
+      menuBackground: '#180C27',
+      overlayBackground: '#180C27',
     });
 
     this.a.vbox(() => {
