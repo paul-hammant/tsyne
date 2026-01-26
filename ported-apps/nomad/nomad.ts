@@ -318,11 +318,16 @@ export class NomadUI {
 
     const [hours, minutes] = timeStr.split(':').map(Number);
 
-    // Get the current date in the city's timezone
-    const dateStr = this.formatDate(cityTimezone, this.state.selectedDate);
-
     // Parse current selected date
     const currentDate = this.state.selectedDate;
+
+    // Check if this would actually change anything
+    if (!this.state.useCurrentTime &&
+        currentDate.getHours() === hours &&
+        currentDate.getMinutes() === minutes) {
+      return; // No change needed
+    }
+
     const newDate = new Date(
       currentDate.getFullYear(),
       currentDate.getMonth(),
