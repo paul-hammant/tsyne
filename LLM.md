@@ -406,6 +406,7 @@ a.menuButton('…', (menu) => {
   }
 }).withId('item-menu');
 ```
+*Note: Nested/submenu items not yet supported - flat menus only.*
 
 **TappableCanvasRaster (pixel-based rendering):**
 ```typescript
