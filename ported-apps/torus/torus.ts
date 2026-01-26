@@ -42,16 +42,20 @@ const CANVAS_HEIGHT = 600;
 // Torus geometry parameters
 const MAJOR_RADIUS = 160;  // Distance from center to tube center
 const MINOR_RADIUS = 60;   // Tube radius
-const SEGMENTS_U = 48;    // Segments around major circle
-const SEGMENTS_V = 32;    // Segments around minor circle
+const SEGMENTS_U = 80;    // Segments around major circle (increased for higher res)
+const SEGMENTS_V = 48;    // Segments around minor circle (increased for higher res)
 
-// Animation parameters
-const AUTO_ROTATE_SPEED_THETA = 0.5;  // Radians per second (yaw)
-const AUTO_ROTATE_SPEED_PHI = 0.3;    // Radians per second (pitch)
-const AUTO_ROTATE_SPEED_PSI = 0.2;    // Radians per second (roll)
+// Animation parameters - matched to original
+const AUTO_ROTATE_SPEED_THETA = 0.55;  // Radians per second (yaw)
+const AUTO_ROTATE_SPEED_PHI = 0.95;    // Radians per second (pitch)
+const AUTO_ROTATE_SPEED_PSI = 0.15;    // Radians per second (roll)
 
-// Colors
-const BACKGROUND_COLOR = rgb(26, 26, 46);  // #1a1a2e
+// Background pixelation parameters (inspired by original WebGL shader)
+const BG_PIXEL_SIZE = 8;         // Cell size for background noise
+
+// Colors - deep blue/black for background
+const BG_BLUE_MIN = rgb(0, 0, 20);    // Dark blue-black
+const BG_BLUE_MAX = rgb(0, 10, 60);   // Slightly brighter blue
 
 /**
  * Torus application state
@@ -143,7 +147,49 @@ interface ProjectedQuad {
 }
 
 /**
+ * Hash function for pseudo-random values (like WebGL shader hash12)
+ * Creates deterministic noise for stippling effect
+ */
+function hash12(x: number, y: number): number {
+  // Simple hash combining x and y coordinates
+  const h = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+  return h - Math.floor(h);
+}
+
+/**
+ * Draw a stippled/pixelated blue-black background
+ */
+function renderStippledBackground(buffer: PixelBuffer, pixelSize: number): void {
+  const width = buffer.width;
+  const height = buffer.height;
+
+  // Process in grid cells for the blocky effect
+  for (let cy = 0; cy < height; cy += pixelSize) {
+    for (let cx = 0; cx < width; cx += pixelSize) {
+      // Hash for this cell
+      const cellX = Math.floor(cx / pixelSize);
+      const cellY = Math.floor(cy / pixelSize);
+      const h = hash12(cellX, cellY);
+
+      // Vary blue intensity based on hash
+      const blueIntensity = h * h; // Bias towards darker
+      const blue = Math.floor(BG_BLUE_MIN.b + (BG_BLUE_MAX.b - BG_BLUE_MIN.b) * blueIntensity);
+      const green = Math.floor(BG_BLUE_MIN.g + (BG_BLUE_MAX.g - BG_BLUE_MIN.g) * blueIntensity * 0.5);
+      const color = rgb(0, green, blue);
+
+      // Fill the cell
+      for (let py = cy; py < cy + pixelSize && py < height; py++) {
+        for (let px = cx; px < cx + pixelSize && px < width; px++) {
+          buffer.setPixel(px, py, color);
+        }
+      }
+    }
+  }
+}
+
+/**
  * Render the torus with shaded surfaces to a pixel buffer
+ * Blue/black stippled background with solid red torus and UV-based surface texture
  */
 export function renderTorusToBuffer(
   buffer: PixelBuffer,
@@ -153,16 +199,13 @@ export function renderTorusToBuffer(
   segmentsU: number = SEGMENTS_U,
   segmentsV: number = SEGMENTS_V
 ): void {
-  // Clear to background color
-  buffer.clear(BACKGROUND_COLOR);
+  // Render stippled blue/black background
+  renderStippledBackground(buffer, BG_PIXEL_SIZE);
 
   const mesh = generateTorusMesh({ majorRadius, minorRadius, segmentsU, segmentsV });
 
   // Light direction in camera space: slightly from upper-right, towards the scene
-  // This is the direction FROM the surface TO the light
-  // Since camera looks towards -Z, surfaces with normal pointing towards +Z are facing the camera
-  // Adding slight x,y offset creates a more 3D looking shading
-  const lightDir = { x: 0.2, y: 0.2, z: 0.96 }; // pre-normalized (0.2^2 + 0.2^2 + 0.96^2 ≈ 1)
+  const lightDir = { x: 0.2, y: 0.3, z: 0.93 }; // pre-normalized
 
   // Project all quads and calculate their depth
   const projectedQuads: ProjectedQuad[] = [];
@@ -171,10 +214,9 @@ export function renderTorusToBuffer(
     const quad = mesh.quads[quadIdx];
     const vertices = quad.vertices;
 
-    // Calculate checkerboard pattern based on grid position
+    // Get UV coordinates for surface texture (grid position on torus)
     const i = Math.floor(quadIdx / segmentsV);  // Position around major circle
     const j = quadIdx % segmentsV;               // Position around minor circle
-    const isAlternate = (i + j) % 2 === 0;
 
     // Project all 4 vertices
     const projected = vertices.map(v => ({
@@ -206,20 +248,16 @@ export function renderTorusToBuffer(
     // Shading: dot product of rotated normal with light direction
     // Surfaces facing the camera (positive Z) are brighter
     const dot = rotatedNormal.x * lightDir.x + rotatedNormal.y * lightDir.y + rotatedNormal.z * lightDir.z;
-    const shade = Math.max(0, dot) * 0.7 + 0.3; // 0.3 ambient, 0.7 diffuse
+    const shade = Math.max(0, dot) * 0.75 + 0.25; // 0.25 ambient, 0.75 diffuse
 
-    // Alternate between red and orange in a checkerboard pattern
-    let color;
-    if (isAlternate) {
-      // Red
-      const red = Math.round(60 + shade * 195);
-      color = rgb(red, 0, 0);
-    } else {
-      // Orange
-      const red = Math.round(60 + shade * 195);
-      const green = Math.round(30 + shade * 100);
-      color = rgb(red, green, 0);
-    }
+    // UV-based surface texture: use hash of grid position for per-quad variation
+    // This creates stippling that moves WITH the torus surface
+    const uvNoise = hash12(i * 7.3, j * 11.7);
+    const textureVariation = 0.7 + uvNoise * 0.3; // 0.7 to 1.0 range
+
+    // Red color with lighting and surface texture
+    const red = Math.round((80 + shade * 175) * textureVariation);
+    const color = rgb(red, 0, 0);
 
     projectedQuads.push({
       points: [
@@ -234,10 +272,9 @@ export function renderTorusToBuffer(
   }
 
   // Sort by depth (painter's algorithm - draw far quads first, near quads last)
-  // In our coordinate system, larger Z = closer to camera, so sort ascending (smallest Z first = farthest first)
   projectedQuads.sort((a, b) => a.depth - b.depth);
 
-  // Draw all quads
+  // Draw all quads as solid shapes
   for (const quad of projectedQuads) {
     buffer.drawQuad(
       quad.points[0].x, quad.points[0].y,
