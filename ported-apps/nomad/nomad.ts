@@ -379,11 +379,18 @@ export class NomadUI {
   }
 
   /**
-   * Show photo info for a city (placeholder)
+   * Show photo info for a city
    */
   private showPhotoInfo(city: City): void {
-    // For now, just log - could show a dialog with photo credits
-    console.log(`Photo info for ${city.name}`);
+    const imageUrl = city.imageUrl || CITY_IMAGES[city.id] ||
+      `https://picsum.photos/seed/${encodeURIComponent(city.id)}/400/200`;
+
+    if (this.window) {
+      this.window.showInfo(
+        `Photo: ${city.name}`,
+        `Image source: Picsum Photos (placeholder)\nURL: ${imageUrl}`
+      );
+    }
   }
 
   /**
