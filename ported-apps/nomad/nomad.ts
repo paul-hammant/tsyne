@@ -160,21 +160,15 @@ export class NomadUI {
 
   private timeUpdateInterval: NodeJS.Timeout | null = null;
   private searchResults: City[] = [];
-  private testMode: boolean = false;
   private isBuilding: boolean = false; // Prevent recursive rebuilds during construction
 
-  constructor(private a: App, options?: { testMode?: boolean }) {
-    this.testMode = options?.testMode ?? false;
-
+  constructor(private a: App) {
     // Initialize with default city synchronously
     this.state.cities = [
       WORLD_CITIES.find((c) => c.id === 'edinburgh') || WORLD_CITIES[0],
     ];
 
-    // Skip loading saved settings in test mode to avoid async UI rebuilds
-    if (!this.testMode) {
-      this.loadSettings();
-    }
+    this.loadSettings();
   }
 
   private loadSettings(): void {
@@ -198,7 +192,11 @@ export class NomadUI {
       const savedCities = JSON.parse(json);
       if (savedCities.length > 0) {
         this.state.cities = savedCities;
-        this.refreshUI();
+        // Don't call refreshUI here - buildUI will use the loaded cities
+        // If UI is already built, a manual refresh can be triggered
+        if (this.window && !this.isBuilding) {
+          this.refreshUI();
+        }
       }
     } catch {
       // Keep default city on parse error
@@ -487,22 +485,28 @@ export class NomadUI {
 
     // Building complete - allow refreshUI to work again
     this.isBuilding = false;
+  }
 
-    // Start timer for updating times (every 30 seconds is sufficient for HH:MM display)
-    // Skip timer in test mode to avoid interfering with test assertions
-    if (!this.timeUpdateInterval && !this.testMode) {
-      this.timeUpdateInterval = setInterval(() => {
-        if (this.state.useCurrentTime && this.window) {
-          this.state.selectedDate = new Date();
-          try {
-            this.refreshUI();
-          } catch (e) {
-            // Window may have been closed - stop the timer
-            this.cleanup();
-          }
-        }
-      }, 30000);
+  /**
+   * Start auto-refresh timer for live time updates.
+   * Call this after buildUI if you want the time to update automatically.
+   * Updates every 30 seconds (sufficient for HH:MM display).
+   */
+  startAutoRefresh(): void {
+    if (this.timeUpdateInterval) {
+      return; // Already running
     }
+    this.timeUpdateInterval = setInterval(() => {
+      if (this.state.useCurrentTime && this.window) {
+        this.state.selectedDate = new Date();
+        try {
+          this.refreshUI();
+        } catch (e) {
+          // Window may have been closed - stop the timer
+          this.cleanup();
+        }
+      }
+    }, 30000);
   }
 
   // Public methods for testing
@@ -531,12 +535,12 @@ export class NomadUI {
  * Create the Nomad app
  * @param a App instance
  * @param win Window instance
- * @param options Optional configuration (testMode disables timers and async settings loading)
+ * @param options.autoRefresh Whether to start the auto-refresh timer (default: true for production)
  */
-export function buildNomadApp(a: App, win: Window, options?: { testMode?: boolean }): NomadUI {
-  const ui = new NomadUI(a, options);
+export function buildNomadApp(a: App, win: Window, options?: { autoRefresh?: boolean }): NomadUI {
+  const ui = new NomadUI(a);
 
-  // Register cleanup for test mode (ensures timer is stopped)
+  // Register cleanup (ensures timer is stopped on app exit)
   a.registerCleanup(() => ui.cleanup());
 
   win.setContent(() => {
@@ -547,6 +551,12 @@ export function buildNomadApp(a: App, win: Window, options?: { testMode?: boolea
     ui.cleanup();
     return true;
   });
+
+  // Start auto-refresh by default (production behavior)
+  // Tests can pass autoRefresh: false to disable
+  if (options?.autoRefresh !== false) {
+    ui.startAutoRefresh();
+  }
 
   return ui;
 }

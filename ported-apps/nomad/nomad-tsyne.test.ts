@@ -17,7 +17,7 @@ describe('Nomad Timezone Manager UI', () => {
     tsyneTest = new TsyneTest({ headed: false });
     testApp = await tsyneTest.createApp((app: App) => {
       app.window({ title: 'Nomad', width: 340, height: 600 }, (win: Window) => {
-        buildNomadApp(app, win, { testMode: true });
+        buildNomadApp(app, win, { autoRefresh: false });
       });
     });
     ctx = tsyneTest.getContext();

@@ -48,7 +48,7 @@ describe('Nomad Interactivity Tests', () => {
 
     testApp = await tsyneTest.createApp((app: App) => {
       app.window({ title: 'Nomad', width: 340, height: 600 }, (win: Window) => {
-        ui = buildNomadApp(app, win, { testMode: true });
+        ui = buildNomadApp(app, win, { autoRefresh: false });
       });
     });
 
